@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wasit & Live Score — Sorowako Pickleball Open 2027</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono for crisp scoreboard digits -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+  <!-- Tone.js for synthesized referee chime/whistle cues (no external audio URLs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            sorowako: {
+              navy: '#07193D',
+              blue: '#0F3478',
+              green: '#16A34A',
+              lime: '#65A30D',
+              gold: '#FACC15',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background-color: #06122B;
+      color: #F8FAFC;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .scoreboard-digit {
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes serverPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.06); opacity: 0.88; }
+    }
+    .server-active-badge {
+      animation: serverPulse 1.8s infinite ease-in-out;
+    }
+    .sig-canvas {
+      touch-action: none;
+      cursor: crosshair;
+    }
+    /* Official A4 Print Styling for Match Report (Berita Acara) */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #printableMatchReportArea,
+      #printableMatchReportArea * {
+        visibility: visible !important;
+      }
+      #printableMatchReportArea {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 16px !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-yellow-400 selection:text-slate-900">
+
+  <!-- TOP TOURNAMENT HEADER (Sesuai Flyer Sorowako Pickleball Open 2027) -->
+  <header class="bg-gradient-to-r from-[#07193D] via-[#0D2B66] to-[#08224F] border-b border-blue-800/70 sticky top-0 z-30 shadow-lg">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand & Event Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center shadow-md border border-lime-300/40 shrink-0">
+          <svg class="w-7 h-7 text-slate-950" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-3 6.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zm6 0a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zM12 11a1.25 1.25 0 110 2.5A1.25 1.25 0 0112 11zm-3.5 3.5a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5zm7 0a1.25 1.25 0 110 2.5 1.25 1.25 0 010-2.5z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-sm sm:text-lg font-black tracking-tight text-yellow-400 uppercase leading-none">
+              Sorowako Pickleball Open 2027
+            </h1>
+            <span class="hidden md:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              IPF Luwu Timur
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-blue-200 mt-0.5">
+            29–31 Jan 2027 • Lapangan Pickleball Sorowako • <span class="text-yellow-300/90 font-medium">Luwu Raya Championship</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Cloud Sync Status & Audio Toggle -->
+      <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+        <button id="soundToggleBtn" type="button" title="Suara Efek Wasit"
+          class="p-2.5 rounded-xl bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 text-blue-200 transition flex items-center gap-1.5 text-xs font-semibold">
+          <span id="soundIcon">🔊</span>
+          <span class="hidden sm:inline" id="soundLabel">Suara Aktif</span>
+        </button>
+
+        <div id="cloudStatusBadge"
+          class="px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs font-semibold">
+          <div class="flex items-center gap-2">
+            <span id="cloudDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span id="cloudText" class="text-slate-300">Menghubungkan Cloud...</span>
+          </div>
+          <span id="deviceUserIdBadge" class="text-[10px] font-mono text-blue-300 bg-blue-950/90 px-2 py-0.5 rounded border border-blue-800/80 break-all">
+            ID Perangkat: -
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-[#05122E] border-t border-blue-900/60">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 flex overflow-x-auto gap-1.5 py-2">
+        <button data-tab="referee" type="button" class="tab-btn active-tab flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition bg-yellow-400 text-slate-950 shadow">
+          <span>⚖️</span> Meja Wasit (Scoring)
+        </button>
+        <button data-tab="liveboard" type="button" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition text-blue-200 hover:bg-blue-900/50">
+          <span>📺</span> Live Scoreboard Cloud
+          <span id="liveMatchCountBadge" class="px-2 py-0.5 text-[11px] rounded-full bg-emerald-500 text-slate-950 font-extrabold">0</span>
+        </button>
+        <button data-tab="bracket" type="button" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition text-blue-200 hover:bg-blue-900/50">
+          <span>🏆</span> Bagan & Klasemen Otomatis
+        </button>
+        <button data-tab="architecture" type="button" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition text-blue-200 hover:bg-blue-900/50">
+          <span>🏗️</span> Arsitektur Sistem & Kategori Flyer
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: MEJA WASIT (REFEREE COURT CONSOLE)                           -->
+    <!-- =================================================================== -->
+    <section id="tab-referee" class="tab-panel space-y-5">
+
+      <!-- Multi-User 10-Court Device Assignment Bar -->
+      <div class="bg-gradient-to-r from-[#091C42] to-[#0D2759] border border-blue-700/70 rounded-2xl p-3.5 sm:p-4 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-xl bg-yellow-400/15 border border-yellow-400/40 flex items-center justify-center text-lg shrink-0">📱</span>
+          <div>
+            <h2 class="text-xs sm:text-sm font-black text-yellow-400 uppercase tracking-wide">
+              Mode Multi-User (10 Meja Wasit Bersamaan)
+            </h2>
+            <p class="text-[11px] text-blue-200">
+              Pilih <strong>Lapangan Tugas</strong> perangkat ini agar daftar laga otomatis terfilter &amp; tidak tertukar dengan wasit lapangan lain.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <select id="deviceCourtFilterSelect"
+            class="bg-slate-950 border border-yellow-400/70 text-yellow-300 text-xs font-extrabold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            <option value="ALL">🏟️ Semua Lapangan (Mode Panitia)</option>
+            <option value="Lapangan 1 (Utama)">🎯 Tugas: Lapangan 1 (Utama)</option>
+            <option value="Lapangan 2">🎯 Tugas: Lapangan 2</option>
+            <option value="Lapangan 3">🎯 Tugas: Lapangan 3</option>
+            <option value="Lapangan 4">🎯 Tugas: Lapangan 4</option>
+            <option value="Lapangan 5">🎯 Tugas: Lapangan 5</option>
+            <option value="Lapangan 6">🎯 Tugas: Lapangan 6</option>
+            <option value="Lapangan 7">🎯 Tugas: Lapangan 7</option>
+            <option value="Lapangan 8">🎯 Tugas: Lapangan 8</option>
+            <option value="Lapangan 9">🎯 Tugas: Lapangan 9</option>
+            <option value="Lapangan 10">🎯 Tugas: Lapangan 10</option>
+          </select>
+
+          <input id="deviceRefereeNameInput" type="text" placeholder="Nama Wasit Perangkat Ini (opsional)"
+            class="bg-slate-950 border border-blue-700 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 sm:w-56" />
+        </div>
+      </div>
+
+      <!-- Concurrent Referee Warning Banner -->
+      <div id="concurrentRefereeWarning" class="hidden rounded-2xl bg-amber-950/90 border border-amber-400/80 p-3.5 text-xs text-amber-100 flex items-start gap-2.5 shadow-lg">
+        <span class="text-base shrink-0">⚠️</span>
+        <div>
+          <strong class="text-amber-300 block">Perhatian — Laga Ini Baru Diperbarui Perangkat Lain!</strong>
+          <span id="concurrentRefereeDetail">Pastikan hanya 1 perangkat wasit yang menginput skor untuk lapangan ini agar tidak terjadi bentrok angka.</span>
+        </div>
+      </div>
+
+      <!-- Match Selector & New Match Trigger Bar -->
+      <div class="bg-[#0B1F47] border border-blue-800/70 rounded-2xl p-4 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
+          <label for="activeMatchSelect" class="text-xs font-extrabold uppercase tracking-wider text-yellow-400 shrink-0">
+            Pertandingan Aktif:
+          </label>
+          <select id="activeMatchSelect"
+            class="w-full lg:max-w-md bg-slate-950 border border-blue-700/80 text-white text-sm font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            <option value="">-- Pilih Pertandingan atau Buat Baru --</option>
+          </select>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="openNewMatchModalBtn" type="button"
+            class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-950/50 transition flex items-center gap-2">
+            <span>➕</span> Buat Pertandingan Baru
+          </button>
+          <button id="seedDemoMatchesBtn" type="button"
+            class="px-3.5 py-2.5 rounded-xl bg-blue-900/80 hover:bg-blue-800 border border-blue-700 text-blue-100 font-bold text-xs transition flex items-center gap-1.5">
+            <span>⚡</span> Isi Contoh Jadwal Turnamen
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State when no match is loaded -->
+      <div id="noMatchPlaceholder" class="bg-[#0B1F47]/70 border border-dashed border-blue-700/70 rounded-3xl p-8 sm:p-12 text-center space-y-4">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-yellow-400/15 border border-yellow-400/40 flex items-center justify-center text-3xl">
+          🏓
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white">Siap Memimpin Pertandingan di Lapangan Pickleball Sorowako</h2>
+        <p class="text-sm text-blue-200 max-w-xl mx-auto leading-relaxed">
+          Pilih pertandingan yang sedang berlangsung dari daftar di atas, atau buat pertandingan baru berdasarkan kategori resmi flyer (<strong class="text-yellow-300">Lokal Sorowako, Lokal Luwu Timur, Open Luwu Raya, atau Pelajar Luwu Raya</strong>).
+        </p>
+        <div class="pt-2 flex flex-wrap justify-center gap-3">
+          <button id="emptyNewMatchBtn" type="button"
+            class="px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-extrabold text-sm shadow-lg transition">
+            ➕ Mulai Pertandingan Baru
+          </button>
+          <button id="emptySeedBtn" type="button"
+            class="px-5 py-3 rounded-xl bg-blue-800 hover:bg-blue-700 text-white font-bold text-sm border border-blue-600 transition">
+            ⚡ Isi Contoh Jadwal Pertandingan
+          </button>
+        </div>
+      </div>
+
+      <!-- ACTIVE REFEREE CONSOLE -->
+      <div id="refereeConsole" class="hidden space-y-5">
+
+        <!-- Top Match Metadata & Referee Callout Banner -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-5 bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span id="consoleCourtBadge" class="px-2.5 py-1 rounded-lg bg-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wide">
+                    LAPANGAN 1
+                  </span>
+                  <span id="consoleDivisionBadge" class="px-2.5 py-1 rounded-lg bg-blue-900 text-blue-200 font-bold text-xs border border-blue-700">
+                    C. Open Luwu Raya
+                  </span>
+                </div>
+                <h2 id="consoleCategoryTitle" class="text-base sm:text-lg font-extrabold text-white mt-2">
+                  Ganda Putra
+                </h2>
+                <p id="consoleFormatInfo" class="text-xs text-blue-300 mt-0.5">
+                  Format: Ganda (Skor 3 Angka) • Target 11 Poin (Win by 2) • Best of 3 Set
+                </p>
+              </div>
+              <span id="consoleStatusPill" class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-extrabold uppercase">
+                ● LIVE
+              </span>
+            </div>
+
+            <div class="bg-slate-950/80 rounded-xl p-2.5 border border-blue-900/70 flex items-center justify-between text-xs">
+              <span class="text-blue-300 font-semibold">Set Berjalan: <strong id="consoleCurrentSet" class="text-yellow-400">Set 1</strong></span>
+              <div id="consoleSetHistory" class="flex items-center gap-2 font-mono font-bold text-slate-200">
+                <span>Set 1: 0-0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- OFFICIAL REFEREE SCORE CALLOUT -->
+          <div class="lg:col-span-7 bg-gradient-to-br from-[#0F2F6B] to-[#081A3E] border-2 border-yellow-400/80 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-extrabold uppercase tracking-widest text-yellow-400 flex items-center gap-1.5">
+                <span>📣</span> Panggilan Skor Resmi Wasit (Sebelum Servis)
+              </span>
+              <span id="consoleRuleTypeBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-300 border border-yellow-400/30">
+                GANDA (3-ANGKA)
+              </span>
+            </div>
+
+            <div class="my-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div id="refereeScoreCallout" class="font-mono text-3xl sm:text-5xl font-black tracking-tight text-white">
+                  0 - 0 - 2
+                </div>
+                <p id="refereeInstructionCallout" class="text-xs sm:text-sm text-emerald-300 font-semibold mt-1">
+                  Tim A Servis • Server Ke-2 (Pembuka Game) • Posisi Kanan (Genap)
+                </p>
+              </div>
+
+              <div class="flex sm:flex-col gap-2 shrink-0">
+                <button id="swapInitialServerBtn" type="button"
+                  class="px-3 py-2 rounded-xl bg-blue-950/90 hover:bg-blue-900 border border-blue-600/70 text-xs font-bold text-blue-100 transition">
+                  🔄 Tukar Tim Servis
+                </button>
+                <button id="swapCourtEndsBtn" type="button"
+                  class="px-3 py-2 rounded-xl bg-blue-950/90 hover:bg-blue-900 border border-blue-600/70 text-xs font-bold text-blue-100 transition">
+                  ⇄ Tukar Sisi Lapangan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN DUAL TEAM SCOREBOARDS (TIM A vs TIM B) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <!-- TEAM A CARD -->
+          <div id="teamACard" class="rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-emerald-400 shadow-2xl transition-all flex flex-col justify-between gap-5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-blue-950 text-blue-300 border border-blue-800">
+                    TIM A / KIRI
+                  </span>
+                  <span id="teamAServingBadge" class="server-active-badge px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wide shadow">
+                    🎾 SERVIS (SERVER 2)
+                  </span>
+                </div>
+                <h3 id="teamANameDisplay" class="text-lg sm:text-xl font-extrabold text-white pt-1">
+                  Tim A
+                </h3>
+                <p id="teamAPlayersDisplay" class="text-xs sm:text-sm text-blue-200">
+                  Pemain 1 &amp; Pemain 2
+                </p>
+              </div>
+
+              <div class="text-center bg-slate-950/90 border border-blue-800 rounded-2xl px-3.5 py-2 shrink-0">
+                <span class="block text-[10px] font-bold uppercase text-blue-300">SET</span>
+                <span id="teamASetsDisplay" class="font-mono text-2xl font-black text-yellow-400">0</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-950/90 border border-blue-900/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Poin Game Ini</span>
+                <div id="teamAScoreDisplay" class="scoreboard-digit font-mono text-6xl sm:text-7xl font-black text-white leading-none mt-1">
+                  0
+                </div>
+              </div>
+
+              <div class="text-right space-y-1.5">
+                <span class="text-[11px] font-bold uppercase text-blue-300 block">Posisi Servis</span>
+                <div id="teamAPositionBadge" class="inline-block px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-extrabold">
+                  KOTAK KANAN (GENAP)
+                </div>
+                <div class="text-[11px] text-slate-400">
+                  Timeout Tersisa: <strong id="teamATimeoutsDisplay" class="text-white">2</strong>/2
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <button id="teamATimeoutBtn" type="button"
+                class="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs sm:text-sm font-bold text-amber-300 transition">
+                ⏱️ Timeout Tim A
+              </button>
+              <button id="teamAFaultBtn" type="button"
+                class="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs sm:text-sm font-bold text-rose-300 transition">
+                ⚠️ Pelanggaran / Warning
+              </button>
+            </div>
+          </div>
+
+          <!-- TEAM B CARD -->
+          <div id="teamBCard" class="rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-blue-800/70 shadow-xl transition-all flex flex-col justify-between gap-5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-blue-950 text-blue-300 border border-blue-800">
+                    TIM B / KANAN
+                  </span>
+                  <span id="teamBServingBadge" class="hidden server-active-badge px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wide shadow">
+                    🎾 SERVIS (SERVER 1)
+                  </span>
+                </div>
+                <h3 id="teamBNameDisplay" class="text-lg sm:text-xl font-extrabold text-white pt-1">
+                  Tim B
+                </h3>
+                <p id="teamBPlayersDisplay" class="text-xs sm:text-sm text-blue-200">
+                  Pemain 1 &amp; Pemain 2
+                </p>
+              </div>
+
+              <div class="text-center bg-slate-950/90 border border-blue-800 rounded-2xl px-3.5 py-2 shrink-0">
+                <span class="block text-[10px] font-bold uppercase text-blue-300">SET</span>
+                <span id="teamBSetsDisplay" class="font-mono text-2xl font-black text-yellow-400">0</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-950/90 border border-blue-900/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">Poin Game Ini</span>
+                <div id="teamBScoreDisplay" class="scoreboard-digit font-mono text-6xl sm:text-7xl font-black text-white leading-none mt-1">
+                  0
+                </div>
+              </div>
+
+              <div class="text-right space-y-1.5">
+                <span class="text-[11px] font-bold uppercase text-blue-300 block">Posisi Servis</span>
+                <div id="teamBPositionBadge" class="inline-block px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-extrabold">
+                  MENUNGGU SERVIS
+                </div>
+                <div class="text-[11px] text-slate-400">
+                  Timeout Tersisa: <strong id="teamBTimeoutsDisplay" class="text-white">2</strong>/2
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <button id="teamBTimeoutBtn" type="button"
+                class="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs sm:text-sm font-bold text-amber-300 transition">
+                ⏱️ Timeout Tim B
+              </button>
+              <button id="teamBFaultBtn" type="button"
+                class="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs sm:text-sm font-bold text-rose-300 transition">
+                ⚠️ Pelanggaran / Warning
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRIMARY REFEREE RALLY DECISION BAR -->
+        <div class="bg-[#091A3C] border border-blue-700/80 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-blue-300">
+              Keputusan Reli Wasit (Hanya Tim Servis yang Mendapat Poin)
+            </span>
+            <span id="lastActionLogText" class="text-xs text-yellow-300 font-medium">
+              Siap memulai reli pertama.
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4">
+            <button id="rallyPointServerBtn" type="button"
+              class="sm:col-span-6 py-5 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 active:scale-[0.99] text-slate-950 font-black text-base sm:text-xl shadow-lg shadow-emerald-950/60 transition flex flex-col items-center justify-center gap-1">
+              <span id="pointBtnMainLabel">+1 POIN TIM SERVIS</span>
+              <span id="pointBtnSubLabel" class="text-xs font-bold text-slate-900/90">
+                Tim A menang reli → Skor bertambah &amp; tukar posisi servis
+              </span>
+            </button>
+
+            <button id="rallySideOutBtn" type="button"
+              class="sm:col-span-4 py-5 px-5 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 active:scale-[0.99] text-slate-950 font-black text-base sm:text-lg shadow-lg shadow-amber-950/50 transition flex flex-col items-center justify-center gap-1">
+              <span id="sideOutBtnMainLabel">PINDAH SERVIS / SERVER 2</span>
+              <span id="sideOutBtnSubLabel" class="text-xs font-bold text-slate-900/90">
+                Penerima menang reli → Side Out ke Tim B
+              </span>
+            </button>
+
+            <button id="undoActionBtn" type="button"
+              class="sm:col-span-2 py-4 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 active:scale-[0.99] border border-slate-600 text-white font-extrabold text-sm transition flex flex-col items-center justify-center gap-1">
+              <span class="text-lg">↩️</span>
+              <span>UNDO</span>
+            </button>
+          </div>
+
+          <div class="pt-3 border-t border-blue-900/80 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="resetCurrentSetBtn" type="button"
+                class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 transition">
+                🔄 Reset Skor Set Ini
+              </button>
+              <button id="finishMatchManualBtn" type="button"
+                class="px-3.5 py-2 rounded-xl bg-blue-900/70 hover:bg-blue-800 border border-blue-700 text-xs font-bold text-yellow-300 transition">
+                🏆 Sahkan &amp; Akhiri Pertandingan
+              </button>
+              <button id="openReportModalBtn" type="button"
+                class="px-3.5 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 border border-emerald-400/70 text-xs font-extrabold text-white transition flex items-center gap-1.5">
+                <span>📄</span> Berita Acara &amp; Tanda Tangan
+              </button>
+            </div>
+
+            <button id="deleteMatchBtn" type="button"
+              class="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/70 text-xs font-bold text-rose-300 transition">
+              🗑️ Hapus Pertandingan dari Cloud
+            </button>
+          </div>
+
+          <div id="finishedReportBanner" class="hidden rounded-2xl bg-gradient-to-r from-emerald-950/90 to-blue-950/90 border border-emerald-400/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span class="text-xs font-black uppercase tracking-wider text-emerald-300 block">
+                ✅ Pertandingan Telah Selesai &amp; Terkunci di Cloud
+              </span>
+              <p class="text-xs sm:text-sm text-slate-200 mt-0.5">
+                Silakan lengkapi tanda tangan <strong>Wasit Utama</strong> dan <strong>Kapten Kedua Tim</strong> pada Berita Acara Pertandingan untuk dicetak / diarsipkan.
+              </p>
+            </div>
+            <button id="bannerOpenReportBtn" type="button"
+              class="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg shrink-0 transition">
+              ✍️ Tanda Tangan &amp; Cetak Berita Acara
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: LIVE SCOREBOARD CLOUD (MULTI-COURT MONITOR)                  -->
+    <!-- =================================================================== -->
+    <section id="tab-liveboard" class="tab-panel hidden space-y-5">
+      <div class="bg-[#0B1F47] border border-blue-800/70 rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-black text-yellow-400">
+            Live Scoreboard Seluruh Lapangan (Cloud Real-Time)
+          </h2>
+          <p class="text-xs sm:text-sm text-blue-200 mt-0.5">
+            Pantau skor langsung dari 10 meja wasit di Lapangan Pickleball Sorowako secara otomatis.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <select id="liveCourtFilter"
+            class="bg-slate-950 border border-blue-700 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            <option value="ALL">🏟️ Semua Lapangan (1–10)</option>
+            <option value="Lapangan 1 (Utama)">Lapangan 1 (Utama)</option>
+            <option value="Lapangan 2">Lapangan 2</option>
+            <option value="Lapangan 3">Lapangan 3</option>
+            <option value="Lapangan 4">Lapangan 4</option>
+            <option value="Lapangan 5">Lapangan 5</option>
+            <option value="Lapangan 6">Lapangan 6</option>
+            <option value="Lapangan 7">Lapangan 7</option>
+            <option value="Lapangan 8">Lapangan 8</option>
+            <option value="Lapangan 9">Lapangan 9</option>
+            <option value="Lapangan 10">Lapangan 10</option>
+          </select>
+
+          <div class="flex flex-wrap gap-1.5">
+            <button data-filter="ALL" type="button" class="div-filter-btn px-3 py-1.5 rounded-xl text-xs font-extrabold bg-yellow-400 text-slate-950">
+              Semua Divisi
+            </button>
+            <button data-filter="A" type="button" class="div-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-950 text-blue-200 border border-blue-800">
+              A. Lokal Sorowako
+            </button>
+            <button data-filter="B" type="button" class="div-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-950 text-blue-200 border border-blue-800">
+              B. Lokal Luwu Timur
+            </button>
+            <button data-filter="C" type="button" class="div-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-950 text-blue-200 border border-blue-800">
+              C. Open Luwu Raya
+            </button>
+            <button data-filter="D" type="button" class="div-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-950 text-blue-200 border border-blue-800">
+              D. Pelajar Luwu Raya
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="liveMatchesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: BAGAN PERTANDINGAN OTOMATIS (FASE GRUP & SISTEM GUGUR)       -->
+    <!-- =================================================================== -->
+    <section id="tab-bracket" class="tab-panel hidden space-y-6">
+      <div class="bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 text-[11px] font-extrabold uppercase">
+              Otomatis dari Hasil Skor Wasit
+            </span>
+          </div>
+          <h2 class="text-lg sm:text-xl font-black text-white mt-1">
+            Klasemen Fase Grup &amp; Bagan Sistem Gugur (Knockout)
+          </h2>
+          <p class="text-xs sm:text-sm text-blue-200 mt-0.5">
+            Setiap pertandingan yang disahkan wasit otomatis memperbarui klasemen grup dan mengisi slot babak berikutnya.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <select id="bracketCategorySelect"
+            class="bg-slate-950 border border-yellow-400/70 text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            <option value="A|Ganda Putri Beginner">A. Lokal Sorowako — Ganda Putri Beginner</option>
+            <option value="B|Ganda Putra Beginner">B1. Lokal Luwu Timur — Ganda Putra Beginner</option>
+            <option value="B|Ganda Putri Beginner">B2. Lokal Luwu Timur — Ganda Putri Beginner</option>
+            <option value="C|Ganda Putra" selected>C1. Open Luwu Raya — Ganda Putra</option>
+            <option value="C|Ganda Putri">C2. Open Luwu Raya — Ganda Putri</option>
+            <option value="C|Ganda Campuran">C3. Open Luwu Raya — Ganda Campuran</option>
+            <option value="D|Tunggal Putra SD">D1. Pelajar Luwu Raya — Tunggal Putra SD</option>
+            <option value="D|Tunggal Putra SMP">D2. Pelajar Luwu Raya — Tunggal Putra SMP</option>
+            <option value="D|Tunggal Putri SMP">D3. Pelajar Luwu Raya — Tunggal Putri SMP</option>
+          </select>
+
+          <button id="advanceGroupToKnockoutBtn" type="button"
+            class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition shadow-lg whitespace-nowrap">
+            ⚡ Loloskan Top 4 Grup → Semifinal
+          </button>
+        </div>
+      </div>
+
+      <!-- PART A: KLASEMEN FASE GRUP -->
+      <div class="bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-blue-800/70 pb-3">
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-yellow-400 flex items-center gap-2">
+              <span>📊</span> Klasemen Fase Grup (Penyisihan Grup)
+            </h3>
+            <p class="text-xs text-blue-200">
+              Urutan klasemen berdasarkan: <strong>Jumlah Menang → Selisih Set → Selisih Poin</strong>.
+            </p>
+          </div>
+          <span id="groupMatchCounterBadge" class="px-3 py-1 rounded-full bg-blue-950 border border-blue-700 text-xs font-bold text-blue-200">
+            0 Laga Grup Tercatat
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-950/90 text-blue-300 uppercase text-[11px] font-extrabold border-b border-blue-800">
+                <th class="py-3 px-3 rounded-tl-xl">Pos</th>
+                <th class="py-3 px-3">Tim / Pemain</th>
+                <th class="py-3 px-2 text-center">Main</th>
+                <th class="py-3 px-2 text-center text-emerald-400">Menang</th>
+                <th class="py-3 px-2 text-center text-rose-400">Kalah</th>
+                <th class="py-3 px-2 text-center">Set (+/-)</th>
+                <th class="py-3 px-2 text-center">Poin (+/-)</th>
+                <th class="py-3 px-3 text-center text-yellow-400">Poin Klasemen</th>
+                <th class="py-3 px-3 rounded-tr-xl text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody id="groupStandingsTableBody" class="divide-y divide-blue-900/60">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PART B: BAGAN SISTEM GUGUR -->
+      <div class="bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-blue-800/70 pb-3">
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-yellow-400 flex items-center gap-2">
+              <span>🌳</span> Bagan Sistem Gugur (Perempat Final → Semifinal → FINAL)
+            </h3>
+            <p class="text-xs text-blue-200">
+              Pemenang tiap babak otomatis naik ke bagan berikutnya. Klik <strong>Mulai di Meja Wasit</strong> untuk memimpin pertandingan.
+            </p>
+          </div>
+        </div>
+
+        <div id="knockoutBracketContainer" class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 4: ARSITEKTUR SISTEM & BLUEPRINT FLYER TURNAMENT                -->
+    <!-- =================================================================== -->
+    <section id="tab-architecture" class="tab-panel hidden space-y-6">
+      <div class="bg-gradient-to-br from-[#0B1F47] to-[#081736] border border-blue-800/80 rounded-3xl p-5 sm:p-7 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="px-3 py-1 rounded-full bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 text-xs font-extrabold uppercase">
+            Cetak Biru Sistem Wasit &amp; Cloud Store
+          </span>
+          <span class="text-xs text-blue-300 font-semibold">
+            Sorowako Pickleball Open 2027 • 29–31 Januari 2027
+          </span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-black text-white">
+          Arsitektur Sistem Pertandingan &amp; Pemetaan Kategori Resmi Flyer
+        </h2>
+        <p class="text-sm text-blue-200 leading-relaxed">
+          Sistem ini dirancang untuk menghubungkan hingga <strong>10 Meja Wasit Lapangan</strong> secara langsung ke <strong>Cloud Database Real-Time</strong>, sehingga papan skor penonton, klasemen grup, bagan sistem gugur, dan berita acara resmi selalu sinkron tanpa input ulang.
+        </p>
+      </div>
+
+      <!-- 4 Divisi Resmi Sesuai Flyer -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-[#0B1F47] border border-emerald-600/60 rounded-2xl p-4 space-y-2.5">
+          <div class="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black text-xs uppercase">
+            A. Lokal Sorowako
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-200 space-y-1.5 font-semibold">
+            <li>• Ganda Putri Beginner <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+          </ul>
+        </div>
+
+        <div class="bg-[#0B1F47] border border-blue-600/60 rounded-2xl p-4 space-y-2.5">
+          <div class="px-3 py-1.5 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-200 font-black text-xs uppercase">
+            B. Lokal Luwu Timur
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-200 space-y-1.5 font-semibold">
+            <li>1. Ganda Putra Beginner <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+            <li>2. Ganda Putri Beginner <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+          </ul>
+        </div>
+
+        <div class="bg-[#0B1F47] border border-emerald-600/60 rounded-2xl p-4 space-y-2.5">
+          <div class="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black text-xs uppercase">
+            C. Open Luwu Raya
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-200 space-y-1.5 font-semibold">
+            <li>1. Ganda Putra <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+            <li>2. Ganda Putri <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+            <li>3. Ganda Campuran <span class="text-yellow-400 text-[11px]">(3-Angka)</span></li>
+          </ul>
+        </div>
+
+        <div class="bg-[#0B1F47] border border-blue-600/60 rounded-2xl p-4 space-y-2.5">
+          <div class="px-3 py-1.5 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-200 font-black text-xs uppercase">
+            D. Pelajar Luwu Raya
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-200 space-y-1.5 font-semibold">
+            <li>1. Tunggal Putra SD <span class="text-cyan-300 text-[11px]">(2-Angka)</span></li>
+            <li>2. Tunggal Putra SMP <span class="text-cyan-300 text-[11px]">(2-Angka)</span></li>
+            <li>3. Tunggal Putri SMP <span class="text-cyan-300 text-[11px]">(2-Angka)</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Alur Teknis & Informasi Panitia Flyer -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-5 space-y-3">
+          <h3 class="text-base font-black text-yellow-400">⚙️ Struktur Data Cloud &amp; Sinkronisasi</h3>
+          <ul class="text-xs sm:text-sm text-blue-100 space-y-2 leading-relaxed">
+            <li><strong>1. Koleksi Cloud Terisolasi:</strong> Setiap pertandingan disimpan sebagai dokumen unik (<code>SPO27-...</code>) dengan status <code>LIVE</code> atau <code>FINISHED</code>.</li>
+            <li><strong>2. Mesin Skor Otomatis:</strong> Divisi A, B, dan C otomatis menggunakan format <strong>Ganda 3-Angka</strong> (mulai <code>0-0-2</code>), sedangkan Divisi D otomatis menggunakan format <strong>Tunggal 2-Angka</strong>.</li>
+            <li><strong>3. Otomasi Bagan &amp; Berita Acara:</strong> Kemenangan yang disahkan wasit langsung menghitung klasemen grup, mengisi bagan knockout, dan menyiapkan lembar tanda tangan digital.</li>
+          </ul>
+        </div>
+
+        <div class="bg-[#0B1F47] border border-blue-800/80 rounded-2xl p-5 space-y-3">
+          <h3 class="text-base font-black text-yellow-400">📍 Informasi Penyelenggara (Sesuai Flyer)</h3>
+          <div class="text-xs sm:text-sm text-blue-100 space-y-2">
+            <p><strong>Penyelenggara:</strong> Sorowako Pickleball Community • IPF Luwu Timur • KONI Luwu Timur</p>
+            <p><strong>Tanggal &amp; Venue:</strong> 29 – 31 Januari 2027 • Lapangan Pickleball Sorowako</p>
+            <p><strong>Contact Person Panitia:</strong></p>
+            <ul class="pl-4 list-disc text-yellow-300 font-semibold">
+              <li>Pak Ammank: +62 821-8782-0706</li>
+              <li>Pak Jalil: +62 852-5525-5055</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panduan Operasional 10 User Bersamaan -->
+      <div class="bg-[#0B1F47] border border-emerald-500/60 rounded-2xl p-5 sm:p-6 space-y-3 shadow-xl">
+        <h3 class="text-base sm:text-lg font-black text-emerald-300 flex items-center gap-2">
+          <span>🚀</span> Panduan Operasional 10 Wasit Bersamaan di Lapangan
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs sm:text-sm text-blue-100">
+          <div class="bg-slate-950/70 border border-blue-800/70 rounded-xl p-3.5 space-y-1">
+            <span class="font-black text-yellow-400 block">1. Satu Tautan Web untuk Semua</span>
+            <p>Unggah file aplikasi ini ke Firebase Hosting. Bagikan 1 tautan URL yang sama ke 10 HP/Tablet wasit dan layar TV panitia.</p>
+          </div>
+          <div class="bg-slate-950/70 border border-blue-800/70 rounded-xl p-3.5 space-y-1">
+            <span class="font-black text-yellow-400 block">2. Kunci Lapangan Masing-Masing</span>
+            <p>Setiap wasit memilih nomor <strong>Tugas: Lapangan 1 s/d 10</strong> di bagian atas tab Meja Wasit. Setiap kali tombol poin ditekan, skor langsung tersimpan otomatis ke Cloud tanpa tombol Save manual.</p>
+          </div>
+          <div class="bg-slate-950/70 border border-blue-800/70 rounded-xl p-3.5 space-y-1">
+            <span class="font-black text-yellow-400 block">3. Monitor Pusat &amp; Bagan Otomatis</span>
+            <p>Meja panitia cukup membuka tab <strong>Live Scoreboard Cloud</strong> dan <strong>Bagan &amp; Klasemen Otomatis</strong> untuk memantau seluruh 10 lapangan secara real-time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: BUAT PERTANDINGAN BARU (10 LAPANGAN & KATEGORI FLYER)          -->
+  <!-- ===================================================================== -->
+  <div id="newMatchModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-[#0B1F47] border border-blue-600/80 rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden my-auto">
+      <div class="bg-[#07193D] px-5 py-4 border-b border-blue-800 flex items-center justify-between">
+        <div>
+          <h3 class="text-base sm:text-lg font-black text-yellow-400">Buat Pertandingan Baru (Cloud Sync)</h3>
+          <p class="text-xs text-blue-200">Pilih nomor lapangan (1–10) dan kategori resmi Sorowako Open 2027.</p>
+        </div>
+        <button id="closeNewMatchModalBtn" type="button" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold">
+          ✕
+        </button>
+      </div>
+
+      <form id="newMatchForm" class="p-5 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-blue-200 mb-1">Nomor Lapangan</label>
+            <select id="formCourt" required
+              class="w-full bg-slate-950 border border-blue-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white">
+              <option value="Lapangan 1 (Utama)">Lapangan 1 (Utama)</option>
+              <option value="Lapangan 2">Lapangan 2</option>
+              <option value="Lapangan 3">Lapangan 3</option>
+              <option value="Lapangan 4">Lapangan 4</option>
+              <option value="Lapangan 5">Lapangan 5</option>
+              <option value="Lapangan 6">Lapangan 6</option>
+              <option value="Lapangan 7">Lapangan 7</option>
+              <option value="Lapangan 8">Lapangan 8</option>
+              <option value="Lapangan 9">Lapangan 9</option>
+              <option value="Lapangan 10">Lapangan 10</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-blue-200 mb-1">Babak / Fase</label>
+            <select id="formRound" required
+              class="w-full bg-slate-950 border border-blue-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white">
+              <option value="Penyisihan Grup">Penyisihan Grup</option>
+              <option value="Perdelapan Final (R16)">Perdelapan Final (R16)</option>
+              <option value="Perempat Final (QF)">Perempat Final (QF)</option>
+              <option value="Semifinal (SF)">Semifinal (SF)</option>
+              <option value="Perebutan Juara 3">Perebutan Juara 3</option>
+              <option value="FINAL">FINAL</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-yellow-400 mb-1">
+            Kategori Lomba (Sesuai Flyer Resmi)
+          </label>
+          <select id="formCategory" required
+            class="w-full bg-slate-950 border border-yellow-400/70 rounded-xl px-3 py-2.5 text-sm font-bold text-white">
+            <optgroup label="A. Lokal Sorowako">
+              <option value="A|Ganda Putri Beginner|DOUBLES">A. Lokal Sorowako — Ganda Putri Beginner (Ganda)</option>
+            </optgroup>
+            <optgroup label="B. Lokal Luwu Timur">
+              <option value="B|Ganda Putra Beginner|DOUBLES">B1. Lokal Luwu Timur — Ganda Putra Beginner (Ganda)</option>
+              <option value="B|Ganda Putri Beginner|DOUBLES">B2. Lokal Luwu Timur — Ganda Putri Beginner (Ganda)</option>
+            </optgroup>
+            <optgroup label="C. Open Luwu Raya">
+              <option value="C|Ganda Putra|DOUBLES" selected>C1. Open Luwu Raya — Ganda Putra (Ganda)</option>
+              <option value="C|Ganda Putri|DOUBLES">C2. Open Luwu Raya — Ganda Putri (Ganda)</option>
+              <option value="C|Ganda Campuran|DOUBLES">C3. Open Luwu Raya — Ganda Campuran (Ganda)</option>
+            </optgroup>
+            <optgroup label="D. Pelajar Luwu Raya">
+              <option value="D|Tunggal Putra SD|SINGLES">D1. Pelajar Luwu Raya — Tunggal Putra SD (Tunggal)</option>
+              <option value="D|Tunggal Putra SMP|SINGLES">D2. Pelajar Luwu Raya — Tunggal Putra SMP (Tunggal)</option>
+              <option value="D|Tunggal Putri SMP|SINGLES">D3. Pelajar Luwu Raya — Tunggal Putri SMP (Tunggal)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-blue-200 mb-1">Target Poin Kemenangan</label>
+            <select id="formTargetPoints"
+              class="w-full bg-slate-950 border border-blue-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white">
+              <option value="11" selected>11 Poin (Win by 2)</option>
+              <option value="15">15 Poin (Win by 2)</option>
+              <option value="21">21 Poin (Rally / Win by 2)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-blue-200 mb-1">Format Set</label>
+            <select id="formBestOf"
+              class="w-full bg-slate-950 border border-blue-700 rounded-xl px-3 py-2.5 text-sm font-semibold text-white">
+              <option value="1">1 Set (Single Game)</option>
+              <option value="3" selected>Best of 3 Sets</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div class="p-3 rounded-2xl bg-slate-950/80 border border-emerald-700/60 space-y-2">
+            <span class="text-xs font-black uppercase text-emerald-400">Tim A / Pemain A</span>
+            <input id="formTeamAName" type="text" required placeholder="Nama Klub / Daerah (mis. Sorowako A)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white" />
+            <input id="formTeamAPlayers" type="text" required placeholder="Nama Pemain (mis. Andi / Budi)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white" />
+          </div>
+
+          <div class="p-3 rounded-2xl bg-slate-950/80 border border-blue-700/60 space-y-2">
+            <span class="text-xs font-black uppercase text-blue-300">Tim B / Pemain B</span>
+            <input id="formTeamBName" type="text" required placeholder="Nama Klub / Daerah (mis. Malili Club)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white" />
+            <input id="formTeamBPlayers" type="text" required placeholder="Nama Pemain (mis. Reza / Farhan)"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-blue-200 mb-1">Hasil Undian Koin (Servis Pertama)</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-blue-800 cursor-pointer text-xs font-bold">
+              <input type="radio" name="firstServer" value="A" checked class="accent-yellow-400" />
+              <span>Tim A Servis Pertama</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-blue-800 cursor-pointer text-xs font-bold">
+              <input type="radio" name="firstServer" value="B" class="accent-yellow-400" />
+              <span>Tim B Servis Pertama</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-blue-800/80">
+          <button type="button" id="cancelNewMatchBtn"
+            class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+            Batal
+          </button>
+          <button type="submit"
+            class="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+            Simpan ke Cloud &amp; Mulai Wasit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: BERITA ACARA PERTANDINGAN & LEMBAR SKOR RESMI (PRINTABLE)      -->
+  <!-- ===================================================================== -->
+  <div id="matchReportModal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-blue-600/80 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden my-auto flex flex-col max-h-[95vh]">
+      <div class="no-print bg-[#07193D] px-5 py-3.5 border-b border-blue-800 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <h3 class="text-base sm:text-lg font-black text-yellow-400">Berita Acara Pertandingan &amp; Lembar Skor Resmi</h3>
+          <p class="text-xs text-blue-200">Tanda tangan digital Wasit &amp; Kapten Tim sebelum mencetak dokumen resmi.</p>
+        </div>
+        <button id="closeReportModalBtn" type="button" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="overflow-y-auto p-3 sm:p-6 bg-slate-800/70 flex-1">
+        <div id="printableMatchReportArea" class="bg-white text-slate-900 rounded-2xl p-5 sm:p-8 shadow-xl max-w-3xl mx-auto border border-slate-300 space-y-5">
+          <div class="border-b-4 border-double border-slate-900 pb-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <div>
+              <p class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-700">
+                PANITIA PELAKSANA • IPF LUWU TIMUR • KONI LUWU TIMUR
+              </p>
+              <h1 class="text-xl sm:text-2xl font-black tracking-tight text-slate-950 uppercase mt-0.5">
+                SOROWAKO PICKLEBALL OPEN 2027
+              </h1>
+              <p class="text-xs font-semibold text-slate-600">
+                Luwu Raya Pickleball Championship • Venue: Lapangan Pickleball Sorowako • 29–31 Januari 2027
+              </p>
+            </div>
+            <div class="px-3 py-2 rounded-xl border-2 border-slate-900 text-center shrink-0">
+              <span class="block text-[10px] font-bold uppercase text-slate-500">KODE LAGA</span>
+              <span id="reportMatchId" class="font-mono text-xs sm:text-sm font-black text-slate-950">SPO27-XXXX</span>
+            </div>
+          </div>
+
+          <div class="text-center">
+            <h2 class="text-base sm:text-lg font-black uppercase underline tracking-wide text-slate-950">
+              BERITA ACARA HASIL PERTANDINGAN &amp; LEMBAR SKOR RESMI
+            </h2>
+            <p id="reportTimestampText" class="text-xs text-slate-600 mt-1">
+              Disahkan pada: -
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-100 p-3.5 rounded-xl border border-slate-300 text-xs">
+            <div>
+              <span class="text-slate-500 font-semibold block">Kategori Lomba:</span>
+              <strong id="reportCategory" class="text-slate-950 font-extrabold">-</strong>
+            </div>
+            <div>
+              <span class="text-slate-500 font-semibold block">Divisi:</span>
+              <strong id="reportDivision" class="text-slate-950 font-extrabold">-</strong>
+            </div>
+            <div>
+              <span class="text-slate-500 font-semibold block">Lapangan / Babak:</span>
+              <strong id="reportCourtRound" class="text-slate-950 font-extrabold">-</strong>
+            </div>
+            <div>
+              <span class="text-slate-500 font-semibold block">Format Pertandingan:</span>
+              <strong id="reportFormat" class="text-slate-950 font-extrabold">-</strong>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse border border-slate-400 text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-900 text-white">
+                  <th class="border border-slate-400 py-2.5 px-3 text-left">Tim / Kontingen &amp; Nama Pemain</th>
+                  <th class="border border-slate-400 py-2.5 px-2 text-center w-16">Set 1</th>
+                  <th class="border border-slate-400 py-2.5 px-2 text-center w-16">Set 2</th>
+                  <th class="border border-slate-400 py-2.5 px-2 text-center w-16">Set 3</th>
+                  <th class="border border-slate-400 py-2.5 px-2 text-center w-20 bg-slate-800">Total Set</th>
+                  <th class="border border-slate-400 py-2.5 px-2 text-center w-20">Warning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="border border-slate-400 py-3 px-3">
+                    <div id="reportTeamAName" class="font-black text-slate-950 text-sm">Tim A</div>
+                    <div id="reportTeamAPlayers" class="text-xs text-slate-600">Pemain A1 / A2</div>
+                  </td>
+                  <td id="reportTeamASet1" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamASet2" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamASet3" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamATotalSets" class="border border-slate-400 py-2 px-2 text-center font-mono font-black text-lg bg-slate-100">0</td>
+                  <td id="reportTeamAFaults" class="border border-slate-400 py-2 px-2 text-center font-mono">0</td>
+                </tr>
+                <tr>
+                  <td class="border border-slate-400 py-3 px-3">
+                    <div id="reportTeamBName" class="font-black text-slate-950 text-sm">Tim B</div>
+                    <div id="reportTeamBPlayers" class="text-xs text-slate-600">Pemain B1 / B2</div>
+                  </td>
+                  <td id="reportTeamBSet1" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamBSet2" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamBSet3" class="border border-slate-400 py-2 px-2 text-center font-mono font-bold text-base">-</td>
+                  <td id="reportTeamBTotalSets" class="border border-slate-400 py-2 px-2 text-center font-mono font-black text-lg bg-slate-100">0</td>
+                  <td id="reportTeamBFaults" class="border border-slate-400 py-2 px-2 text-center font-mono">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-emerald-50 border-2 border-emerald-700 text-center">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">
+              KEPUTUSAN RESMI PERTANDINGAN
+            </span>
+            <p id="reportWinnerDeclaration" class="text-sm sm:text-base font-black text-slate-950 mt-0.5">
+              Pemenang Pertandingan: -
+            </p>
+          </div>
+
+          <div class="pt-2">
+            <p class="text-xs text-slate-600 mb-3 text-center">
+              Demikian Berita Acara Pertandingan ini dibuat dengan sebenar-benarnya dan disetujui oleh pihak-pihak yang bertanda tangan di bawah ini:
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+              <div class="border border-slate-300 rounded-xl p-3 bg-slate-50 flex flex-col justify-between">
+                <span class="text-xs font-extrabold uppercase text-slate-700 mb-1.5">Kapten Tim A</span>
+                <div class="relative bg-white border border-dashed border-slate-400 rounded-lg overflow-hidden mx-auto">
+                  <canvas id="sigCanvasCaptainA" width="230" height="85" class="sig-canvas block"></canvas>
+                </div>
+                <button type="button" data-clear-sig="captainA" class="no-print mt-1.5 text-[11px] font-bold text-rose-600 hover:underline">
+                  Hapus TTD Kapten A
+                </button>
+                <input id="sigNameCaptainA" type="text" placeholder="Nama Kapten Tim A"
+                  class="mt-2 w-full border-b border-slate-400 bg-transparent text-center text-xs font-bold text-slate-950 py-1 focus:outline-none" />
+              </div>
+
+              <div class="border-2 border-slate-800 rounded-xl p-3 bg-slate-50 flex flex-col justify-between">
+                <span class="text-xs font-black uppercase text-slate-900 mb-1.5">Wasit Utama (Chief Referee)</span>
+                <div class="relative bg-white border border-dashed border-slate-400 rounded-lg overflow-hidden mx-auto">
+                  <canvas id="sigCanvasReferee" width="230" height="85" class="sig-canvas block"></canvas>
+                </div>
+                <button type="button" data-clear-sig="referee" class="no-print mt-1.5 text-[11px] font-bold text-rose-600 hover:underline">
+                  Hapus TTD Wasit
+                </button>
+                <input id="sigNameReferee" type="text" placeholder="Nama Lengkap Wasit"
+                  class="mt-2 w-full border-b border-slate-400 bg-transparent text-center text-xs font-bold text-slate-950 py-1 focus:outline-none" />
+              </div>
+
+              <div class="border border-slate-300 rounded-xl p-3 bg-slate-50 flex flex-col justify-between">
+                <span class="text-xs font-extrabold uppercase text-slate-700 mb-1.5">Kapten Tim B</span>
+                <div class="relative bg-white border border-dashed border-slate-400 rounded-lg overflow-hidden mx-auto">
+                  <canvas id="sigCanvasCaptainB" width="230" height="85" class="sig-canvas block"></canvas>
+                </div>
+                <button type="button" data-clear-sig="captainB" class="no-print mt-1.5 text-[11px] font-bold text-rose-600 hover:underline">
+                  Hapus TTD Kapten B
+                </button>
+                <input id="sigNameCaptainB" type="text" placeholder="Nama Kapten Tim B"
+                  class="mt-2 w-full border-b border-slate-400 bg-transparent text-center text-xs font-bold text-slate-950 py-1 focus:outline-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="no-print bg-[#07193D] px-5 py-3.5 border-t border-blue-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <button id="saveSignaturesCloudBtn" type="button"
+          class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm transition">
+          💾 Simpan Tanda Tangan ke Cloud
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button id="printReportBtn" type="button"
+            class="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg transition flex items-center gap-1.5">
+            <span>🖨️</span> Cetak / Simpan PDF Berita Acara
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- CUSTOM CONFIRMATION MODAL (Pengganti alert/confirm bawaan browser)    -->
+  <!-- ===================================================================== -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0B1F47] border border-yellow-400/70 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <h3 id="confirmModalTitle" class="text-lg font-black text-yellow-400">Konfirmasi Tindakan</h3>
+      <p id="confirmModalMessage" class="text-sm text-blue-100 leading-relaxed">Apakah Anda yakin?</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="confirmModalCancelBtn" type="button"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+          Batal
+        </button>
+        <button id="confirmModalOkBtn" type="button"
+          class="px-4 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-black">
+          Ya, Lanjutkan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION BANNER -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-3 sm:px-0"></div>
+
+  <!-- ===================================================================== -->
+  <!-- FIREBASE CLOUD STORE & PICKLEBALL REFEREE ENGINE SCRIPT               -->
+  <!-- ===================================================================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      deleteDoc,
+      onSnapshot,
+      collection
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // =========================================================================
+    // 1. STATE & CONFIGURATION
+    // =========================================================================
+    // TEMPELKAN KONFIGURASI FIREBASE ANDA DI SINI SAAT DEPLOY KE FIREBASE HOSTING:
+    const MANUAL_FIREBASE_CONFIG = {
+      apiKey: "",
+      authDomain: "",
+      projectId: "",
+      storageBucket: "",
+      messagingSenderId: "",
+      appId: ""
+    };
+
+    const DIVISION_LABELS = {
+      A: "A. Lokal Sorowako",
+      B: "B. Lokal Luwu Timur",
+      C: "C. Open Luwu Raya",
+      D: "D. Pelajar Luwu Raya"
+    };
+
+    const LOCAL_STORAGE_KEY = "spo27_matches_local_v1";
+
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let cloudAvailable = false;
+    const appId = typeof __app_id !== "undefined" ? __app_id : "sorowako-pickleball-2027";
+    const sessionDeviceId = "DEV-" + Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    const matchesMap = new Map();
+    let activeMatchId = "";
+    let liveDivisionFilter = "ALL";
+    let liveCourtFilter = "ALL";
+    let deviceCourtFilter = "ALL";
+    let deviceRefereeName = "";
+    let soundEnabled = true;
+    let confirmCallback = null;
+    let reportMatchId = "";
+
+    const signaturePads = {
+      captainA: { canvas: null, ctx: null, drawing: false, hasInk: false },
+      referee: { canvas: null, ctx: null, drawing: false, hasInk: false },
+      captainB: { canvas: null, ctx: null, drawing: false, hasInk: false }
+    };
+
+    // =========================================================================
+    // 2. AUDIO CUES (Tone.js Synthesized Referee Chimes)
+    // =========================================================================
+    function playToneCue(type) {
+      if (!soundEnabled || typeof Tone === "undefined") return;
+      try {
+        if (Tone.context.state !== "running") {
+          Tone.start();
+        }
+        const synth = new Tone.Synth({
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.01, decay: 0.12, sustain: 0.05, release: 0.2 }
+        }).toDestination();
+
+        if (type === "point") {
+          synth.triggerAttackRelease("C6", "16n");
+        } else if (type === "sideout") {
+          synth.triggerAttackRelease("G5", "16n");
+          setTimeout(() => synth.triggerAttackRelease("E5", "16n"), 90);
+        } else if (type === "win") {
+          synth.triggerAttackRelease("C5", "16n");
+          setTimeout(() => synth.triggerAttackRelease("E5", "16n"), 100);
+          setTimeout(() => synth.triggerAttackRelease("G5", "16n"), 200);
+          setTimeout(() => synth.triggerAttackRelease("C6", "8n"), 300);
+        } else if (type === "timeout") {
+          synth.triggerAttackRelease("A4", "8n");
+        }
+      } catch (err) {
+        // Ignore audio errors if blocked before interaction
+      }
+    }
+
+    // =========================================================================
+    // 3. TOAST & CUSTOM CONFIRMATION MODAL
+    // =========================================================================
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+
+      const colors = {
+        info: "bg-slate-900 border-blue-500 text-blue-100",
+        success: "bg-emerald-950 border-emerald-400 text-emerald-100",
+        warning: "bg-amber-950 border-amber-400 text-amber-100",
+        error: "bg-rose-950 border-rose-400 text-rose-100"
+      };
+
+      const el = document.createElement("div");
+      el.className = `pointer-events-auto border-l-4 rounded-xl px-4 py-3 shadow-2xl text-xs sm:text-sm font-semibold transition-all ${colors[type] || colors.info}`;
+      el.textContent = message;
+      container.appendChild(el);
+
+      setTimeout(() => {
+        el.style.opacity = "0";
+        setTimeout(() => el.remove(), 300);
+      }, 3400);
+    }
+
+    function showConfirmModal(title, message, onConfirm) {
+      const modal = document.getElementById("confirmModal");
+      document.getElementById("confirmModalTitle").textContent = title;
+      document.getElementById("confirmModalMessage").textContent = message;
+      confirmCallback = onConfirm;
+      modal.classList.remove("hidden");
+    }
+
+    function closeConfirmModal() {
+      document.getElementById("confirmModal").classList.add("hidden");
+      confirmCallback = null;
+    }
+
+    // =========================================================================
+    // 4. CLOUD STORE INITIALIZATION & REAL-TIME SYNC (Firebase + Fallback)
+    // =========================================================================
+    function loadLocalFallbackMatches() {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          matchesMap.clear();
+          parsed.forEach((m) => {
+            if (m && m.id) matchesMap.set(m.id, m);
+          });
+        }
+      } catch (e) {
+        console.warn("Gagal membaca localStorage:", e);
+      }
+    }
+
+    function saveLocalFallbackMatches() {
+      try {
+        const arr = Array.from(matchesMap.values());
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(arr));
+      } catch (e) {
+        console.warn("Gagal menyimpan ke localStorage:", e);
+      }
+    }
+
+    async function initCloudStore() {
+      const cloudDot = document.getElementById("cloudDot");
+      const cloudText = document.getElementById("cloudText");
+      const deviceBadge = document.getElementById("deviceUserIdBadge");
+
+      if (deviceBadge) {
+        deviceBadge.textContent = `ID Perangkat: ${sessionDeviceId}`;
+      }
+
+      try {
+        let firebaseConfig = null;
+        if (MANUAL_FIREBASE_CONFIG && MANUAL_FIREBASE_CONFIG.apiKey && MANUAL_FIREBASE_CONFIG.projectId) {
+          firebaseConfig = MANUAL_FIREBASE_CONFIG;
+        } else if (typeof __firebase_config !== "undefined" && __firebase_config) {
+          firebaseConfig = JSON.parse(__firebase_config);
+        } else {
+          throw new Error("Mode Penyimpanan Lokal Aktif (Firebase Config belum diisi).");
+        }
+
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+          currentUser = user;
+          if (user) {
+            cloudAvailable = true;
+            cloudDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+            cloudText.textContent = "Cloud Store Aktif";
+            cloudText.className = "text-emerald-300";
+            deviceBadge.textContent = `ID: ${sessionDeviceId} (${user.uid.slice(0, 6)})`;
+            subscribeToMatches();
+          }
+        });
+      } catch (err) {
+        cloudAvailable = false;
+        cloudDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400";
+        cloudText.textContent = "Mode Lokal (Siap Cloud)";
+        cloudText.className = "text-amber-300";
+        loadLocalFallbackMatches();
+        renderAllViews();
+      }
+    }
+
+    function subscribeToMatches() {
+      if (!db || !currentUser) return;
+      const matchesCol = collection(db, "artifacts", appId, "public", "data", "matches");
+
+      onSnapshot(
+        matchesCol,
+        (snapshot) => {
+          matchesMap.clear();
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data && data.id) {
+              matchesMap.set(data.id, data);
+            }
+          });
+          saveLocalFallbackMatches();
+          renderAllViews();
+        },
+        (error) => {
+          console.error("Firestore onSnapshot error:", error);
+          showToast("Gangguan koneksi Cloud, beralih ke penyimpanan lokal.", "warning");
+          loadLocalFallbackMatches();
+          renderAllViews();
+        }
+      );
+    }
+
+    async function saveMatchToCloud(matchObj) {
+      matchObj.updatedAt = Date.now();
+      matchObj.lastUpdatedByDevice = sessionDeviceId;
+      matchObj.lastUpdatedByReferee = deviceRefereeName || matchObj.refereeName || "";
+
+      matchesMap.set(matchObj.id, matchObj);
+      saveLocalFallbackMatches();
+      renderAllViews();
+
+      if (cloudAvailable && db && currentUser) {
+        try {
+          const ref = doc(db, "artifacts", appId, "public", "data", "matches", matchObj.id);
+          await setDoc(ref, matchObj);
+        } catch (err) {
+          console.error("Gagal menyimpan ke Firestore:", err);
+          showToast("Skor tersimpan lokal (Cloud sedang sinkron ulang).", "warning");
+        }
+      }
+    }
+
+    async function deleteMatchFromCloud(matchId) {
+      matchesMap.delete(matchId);
+      saveLocalFallbackMatches();
+      if (activeMatchId === matchId) {
+        activeMatchId = "";
+      }
+      renderAllViews();
+
+      if (cloudAvailable && db && currentUser) {
+        try {
+          const ref = doc(db, "artifacts", appId, "public", "data", "matches", matchId);
+          await deleteDoc(ref);
+        } catch (err) {
+          console.error("Gagal menghapus dokumen Firestore:", err);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. PICKLEBALL SCORING & REFEREE RULES ENGINE
+    // =========================================================================
+    function createDefaultMatchData({
+      id,
+      court,
+      round,
+      division,
+      category,
+      matchType,
+      targetPoints,
+      bestOf,
+      teamAName,
+      teamAPlayers,
+      teamBName,
+      teamBPlayers,
+      firstServer,
+      bracketSlot = ""
+    }) {
+      const isDoubles = matchType === "DOUBLES";
+      return {
+        id: id || "SPO27-" + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        court: court || "Lapangan 1 (Utama)",
+        round: round || "Penyisihan Grup",
+        division: division || "C",
+        category: category || "Ganda Putra",
+        matchType: isDoubles ? "DOUBLES" : "SINGLES",
+        targetPoints: Number(targetPoints) || 11,
+        bestOf: Number(bestOf) || 3,
+        teamAName: teamAName || "Tim A",
+        teamAPlayers: teamAPlayers || "Pemain A",
+        teamBName: teamBName || "Tim B",
+        teamBPlayers: teamBPlayers || "Pemain B",
+        status: "LIVE",
+        winner: "",
+        currentSet: 1,
+        scoreA: 0,
+        scoreB: 0,
+        setsA: 0,
+        setsB: 0,
+        setHistory: [],
+        servingTeam: firstServer === "B" ? "B" : "A",
+        // Official Pickleball rule: Doubles starts at 0-0-2 (serverNumber = 2)
+        serverNumber: isDoubles ? 2 : 1,
+        timeoutsA: 2,
+        timeoutsB: 2,
+        faultsA: 0,
+        faultsB: 0,
+        lastActionLog: `Undian koin dimenangkan Tim ${firstServer === "B" ? "B" : "A"}. Siap servis pertama.`,
+        undoStack: [],
+        bracketSlot,
+        signatures: {
+          captainA: "",
+          referee: "",
+          captainB: "",
+          captainAName: "",
+          refereeName: "",
+          captainBName: ""
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastUpdatedByDevice: sessionDeviceId,
+        lastUpdatedByReferee: deviceRefereeName || ""
+      };
+    }
+
+    function pushUndoSnapshot(match) {
+      const snapshot = {
+        currentSet: match.currentSet,
+        scoreA: match.scoreA,
+        scoreB: match.scoreB,
+        setsA: match.setsA,
+        setsB: match.setsB,
+        setHistory: JSON.parse(JSON.stringify(match.setHistory || [])),
+        servingTeam: match.servingTeam,
+        serverNumber: match.serverNumber,
+        timeoutsA: match.timeoutsA,
+        timeoutsB: match.timeoutsB,
+        faultsA: match.faultsA,
+        faultsB: match.faultsB,
+        status: match.status,
+        winner: match.winner,
+        lastActionLog: match.lastActionLog
+      };
+      if (!Array.isArray(match.undoStack)) match.undoStack = [];
+      match.undoStack.push(snapshot);
+      if (match.undoStack.length > 25) {
+        match.undoStack.shift();
+      }
+    }
+
+    function formatScoreCallout(match) {
+      const serverScore = match.servingTeam === "A" ? match.scoreA : match.scoreB;
+      const receiverScore = match.servingTeam === "A" ? match.scoreB : match.scoreA;
+      const isRightCourt = serverScore % 2 === 0;
+      const courtSideLabel = isRightCourt ? "Kanan (Genap)" : "Kiri (Ganjil)";
+      const teamLabel = match.servingTeam === "A" ? `Tim A (${match.teamAName})` : `Tim B (${match.teamBName})`;
+
+      if (match.matchType === "DOUBLES") {
+        const srvNum = match.serverNumber || 1;
+        return {
+          digits: `${serverScore} - ${receiverScore} - ${srvNum}`,
+          instruction: `${teamLabel} Servis • Server Ke-${srvNum} • Posisi ${courtSideLabel}`,
+          courtSideLabel,
+          isRightCourt
+        };
+      } else {
+        return {
+          digits: `${serverScore} - ${receiverScore}`,
+          instruction: `${teamLabel} Servis (Tunggal) • Posisi ${courtSideLabel}`,
+          courtSideLabel,
+          isRightCourt
+        };
+      }
+    }
+
+    async function checkSetAndMatchWinner(match) {
+      const target = Number(match.targetPoints) || 11;
+      const a = match.scoreA;
+      const b = match.scoreB;
+      const setsNeeded = Math.ceil((Number(match.bestOf) || 3) / 2);
+
+      let setWinner = "";
+      if (a >= target && a - b >= 2) {
+        setWinner = "A";
+      } else if (b >= target && b - a >= 2) {
+        setWinner = "B";
+      }
+
+      if (!setWinner) return false;
+
+      if (!Array.isArray(match.setHistory)) match.setHistory = [];
+      match.setHistory.push({
+        setNumber: match.currentSet,
+        scoreA: a,
+        scoreB: b,
+        winner: setWinner
+      });
+
+      if (setWinner === "A") {
+        match.setsA += 1;
+      } else {
+        match.setsB += 1;
+      }
+
+      if (match.setsA >= setsNeeded || match.setsB >= setsNeeded) {
+        match.status = "FINISHED";
+        match.winner = match.setsA > match.setsB ? "A" : "B";
+        const winName = match.winner === "A" ? match.teamAName : match.teamBName;
+        match.lastActionLog = `🏆 PERTANDINGAN SELESAI! Pemenang: ${winName} (${match.setsA}-${match.setsB} Set).`;
+        playToneCue("win");
+        showToast(`Pertandingan selesai! Pemenang: ${winName}`, "success");
+        await saveMatchToCloud(match);
+        await syncKnockoutProgression();
+        return true;
+      } else {
+        // Advance to next set
+        match.currentSet += 1;
+        match.scoreA = 0;
+        match.scoreB = 0;
+        // Alternate initial serving team each set
+        match.servingTeam = setWinner === "A" ? "B" : "A";
+        match.serverNumber = match.matchType === "DOUBLES" ? 2 : 1;
+        match.timeoutsA = 2;
+        match.timeoutsB = 2;
+        match.lastActionLog = `Set ${match.currentSet - 1} dimenangkan Tim ${setWinner}. Memasuki Set ${match.currentSet}.`;
+        playToneCue("win");
+        showToast(`Set ${match.currentSet - 1} selesai! Lanjut ke Set ${match.currentSet}.`, "info");
+        return false;
+      }
+    }
+
+    async function handlePointForServingTeam() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match) return;
+      if (match.status === "FINISHED") {
+        showToast("Pertandingan ini sudah selesai dan terkunci.", "warning");
+        return;
+      }
+
+      pushUndoSnapshot(match);
+
+      if (match.servingTeam === "A") {
+        match.scoreA += 1;
+        match.lastActionLog = `+1 Poin Tim A (${match.teamAName}) → Skor ${match.scoreA}-${match.scoreB}.`;
+      } else {
+        match.scoreB += 1;
+        match.lastActionLog = `+1 Poin Tim B (${match.teamBName}) → Skor ${match.scoreB}-${match.scoreA}.`;
+      }
+
+      playToneCue("point");
+      const finished = await checkSetAndMatchWinner(match);
+      if (!finished) {
+        await saveMatchToCloud(match);
+      }
+    }
+
+    async function handleSideOutOrSecondServer() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match) return;
+      if (match.status === "FINISHED") {
+        showToast("Pertandingan ini sudah selesai dan terkunci.", "warning");
+        return;
+      }
+
+      pushUndoSnapshot(match);
+
+      if (match.matchType === "DOUBLES" && match.serverNumber === 1) {
+        match.serverNumber = 2;
+        match.lastActionLog = `Server 1 kalah reli → Pindah ke Server 2 (Tim ${match.servingTeam}).`;
+      } else {
+        match.servingTeam = match.servingTeam === "A" ? "B" : "A";
+        match.serverNumber = 1;
+        const nextName = match.servingTeam === "A" ? match.teamAName : match.teamBName;
+        match.lastActionLog = `SIDE OUT! Bola servis berpindah ke Tim ${match.servingTeam} (${nextName}) — Server 1.`;
+      }
+
+      playToneCue("sideout");
+      await saveMatchToCloud(match);
+    }
+
+    async function handleUndoAction() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match || !Array.isArray(match.undoStack) || match.undoStack.length === 0) {
+        showToast("Tidak ada riwayat aksi sebelumnya untuk di-Undo.", "warning");
+        return;
+      }
+
+      const prev = match.undoStack.pop();
+      Object.assign(match, prev);
+      match.lastActionLog = "↩️ Undo dilakukan oleh wasit.";
+      await saveMatchToCloud(match);
+      showToast("Skor dikembalikan ke keadaan sebelumnya.", "info");
+    }
+
+    async function handleTeamTimeout(team) {
+      const match = matchesMap.get(activeMatchId);
+      if (!match || match.status === "FINISHED") return;
+
+      const key = team === "A" ? "timeoutsA" : "timeoutsB";
+      const teamName = team === "A" ? match.teamAName : match.teamBName;
+      if ((match[key] || 0) <= 0) {
+        showToast(`Jatah Timeout Tim ${team} (${teamName}) sudah habis!`, "warning");
+        return;
+      }
+
+      pushUndoSnapshot(match);
+      match[key] -= 1;
+      match.lastActionLog = `⏱️ TIMEOUT diminta Tim ${team} (${teamName}). Sisa timeout: ${match[key]}/2.`;
+      playToneCue("timeout");
+      await saveMatchToCloud(match);
+      showToast(`Timeout Tim ${team} dicatat (1 menit).`, "info");
+    }
+
+    async function handleTeamFault(team) {
+      const match = matchesMap.get(activeMatchId);
+      if (!match || match.status === "FINISHED") return;
+
+      pushUndoSnapshot(match);
+      const key = team === "A" ? "faultsA" : "faultsB";
+      const teamName = team === "A" ? match.teamAName : match.teamBName;
+      match[key] = (match[key] || 0) + 1;
+      match.lastActionLog = `⚠️ Pelanggaran / Warning #${match[key]} dicatat untuk Tim ${team} (${teamName}).`;
+      playToneCue("timeout");
+      await saveMatchToCloud(match);
+      showToast(`Warning #${match[key]} untuk Tim ${team} (${teamName}).`, "warning");
+    }
+
+    async function handleSwapInitialServer() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match || match.status === "FINISHED") return;
+      pushUndoSnapshot(match);
+      match.servingTeam = match.servingTeam === "A" ? "B" : "A";
+      match.lastActionLog = `🔄 Wasit menukar tim pemegang servis menjadi Tim ${match.servingTeam}.`;
+      await saveMatchToCloud(match);
+    }
+
+    async function handleSwapCourtEnds() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match || match.status === "FINISHED") return;
+      pushUndoSnapshot(match);
+      const tmpName = match.teamAName;
+      const tmpPlayers = match.teamAPlayers;
+      const tmpScore = match.scoreA;
+      const tmpSets = match.setsA;
+      const tmpTo = match.timeoutsA;
+      const tmpFaults = match.faultsA;
+
+      match.teamAName = match.teamBName;
+      match.teamAPlayers = match.teamBPlayers;
+      match.scoreA = match.scoreB;
+      match.setsA = match.setsB;
+      match.timeoutsA = match.timeoutsB;
+      match.faultsA = match.faultsB;
+
+      match.teamBName = tmpName;
+      match.teamBPlayers = tmpPlayers;
+      match.scoreB = tmpScore;
+      match.setsB = tmpSets;
+      match.timeoutsB = tmpTo;
+      match.faultsB = tmpFaults;
+
+      match.servingTeam = match.servingTeam === "A" ? "B" : "A";
+      if (Array.isArray(match.setHistory)) {
+        match.setHistory = match.setHistory.map((s) => ({
+          setNumber: s.setNumber,
+          scoreA: s.scoreB,
+          scoreB: s.scoreA,
+          winner: s.winner === "A" ? "B" : "A"
+        }));
+      }
+
+      match.lastActionLog = "⇄ Kedua tim bertukar sisi lapangan (Kiri ↔ Kanan).";
+      await saveMatchToCloud(match);
+      showToast("Posisi sisi lapangan Tim A dan Tim B ditukar.", "info");
+    }
+
+    function handleResetCurrentSet() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match) return;
+      showConfirmModal(
+        "Reset Skor Set Berjalan?",
+        `Skor Set ${match.currentSet} untuk ${match.teamAName} vs ${match.teamBName} akan dikembalikan ke 0-0.`,
+        async () => {
+          pushUndoSnapshot(match);
+          match.scoreA = 0;
+          match.scoreB = 0;
+          match.serverNumber = match.matchType === "DOUBLES" ? 2 : 1;
+          match.status = "LIVE";
+          match.winner = "";
+          match.lastActionLog = `🔄 Skor Set ${match.currentSet} di-reset ke 0-0 oleh wasit.`;
+          await saveMatchToCloud(match);
+          showToast("Skor set berhasil di-reset.", "info");
+        }
+      );
+    }
+
+    function handleManualFinishMatch() {
+      const match = matchesMap.get(activeMatchId);
+      if (!match) return;
+      if (match.scoreA === match.scoreB && match.setsA === match.setsB) {
+        showToast("Skor masih imbang! Pastikan ada selisih poin/set sebelum mengesahkan pemenang.", "warning");
+        return;
+      }
+
+      const candidateWinner =
+        match.setsA !== match.setsB
+          ? match.setsA > match.setsB
+            ? "A"
+            : "B"
+          : match.scoreA > match.scoreB
+          ? "A"
+          : "B";
+      const candidateName = candidateWinner === "A" ? match.teamAName : match.teamBName;
+
+      showConfirmModal(
+        "Sahkan & Akhiri Pertandingan?",
+        `Pertandingan akan dikunci sebagai SELESAI dengan pemenang: ${candidateName} (Tim ${candidateWinner}).`,
+        async () => {
+          pushUndoSnapshot(match);
+          if (match.scoreA > 0 || match.scoreB > 0) {
+            if (!Array.isArray(match.setHistory)) match.setHistory = [];
+            const alreadyRecorded = match.setHistory.some((s) => s.setNumber === match.currentSet);
+            if (!alreadyRecorded) {
+              match.setHistory.push({
+                setNumber: match.currentSet,
+                scoreA: match.scoreA,
+                scoreB: match.scoreB,
+                winner: match.scoreA >= match.scoreB ? "A" : "B"
+              });
+              if (match.scoreA > match.scoreB) match.setsA += 1;
+              else match.setsB += 1;
+            }
+          }
+          match.status = "FINISHED";
+          match.winner = candidateWinner;
+          match.lastActionLog = `🏆 Pertandingan disahkan wasit. Pemenang: ${candidateName}.`;
+          playToneCue("win");
+          await saveMatchToCloud(match);
+          await syncKnockoutProgression();
+          showToast(`Pertandingan resmi selesai! Pemenang: ${candidateName}`, "success");
+        }
+      );
+    }
+
+    // =========================================================================
+    // 6. AUTOMATIC GROUP STANDINGS & KNOCKOUT BRACKET ENGINE
+    // =========================================================================
+    function computeGroupStandings(categoryMatches) {
+      const groupMatches = categoryMatches.filter((m) => m.round === "Penyisihan Grup");
+      const table = new Map();
+
+      function ensureTeam(name, players) {
+        const key = (name || "").trim();
+        if (!key) return null;
+        if (!table.has(key)) {
+          table.set(key, {
+            teamName: key,
+            players: players || "",
+            played: 0,
+            wins: 0,
+            losses: 0,
+            setsFor: 0,
+            setsAgainst: 0,
+            pointsFor: 0,
+            pointsAgainst: 0,
+            standingPoints: 0
+          });
+        }
+        return table.get(key);
+      }
+
+      groupMatches.forEach((m) => {
+        const tA = ensureTeam(m.teamAName, m.teamAPlayers);
+        const tB = ensureTeam(m.teamBName, m.teamBPlayers);
+        if (!tA || !tB) return;
+
+        if (m.status === "FINISHED") {
+          tA.played += 1;
+          tB.played += 1;
+          tA.setsFor += Number(m.setsA) || 0;
+          tA.setsAgainst += Number(m.setsB) || 0;
+          tB.setsFor += Number(m.setsB) || 0;
+          tB.setsAgainst += Number(m.setsA) || 0;
+
+          let ptsA = 0;
+          let ptsB = 0;
+          if (Array.isArray(m.setHistory) && m.setHistory.length > 0) {
+            m.setHistory.forEach((s) => {
+              ptsA += Number(s.scoreA) || 0;
+              ptsB += Number(s.scoreB) || 0;
+            });
+          } else {
+            ptsA = Number(m.scoreA) || 0;
+            ptsB = Number(m.scoreB) || 0;
+          }
+
+          tA.pointsFor += ptsA;
+          tA.pointsAgainst += ptsB;
+          tB.pointsFor += ptsB;
+          tB.pointsAgainst += ptsA;
+
+          if (m.winner === "A") {
+            tA.wins += 1;
+            tA.standingPoints += 2;
+            tB.losses += 1;
+          } else if (m.winner === "B") {
+            tB.wins += 1;
+            tB.standingPoints += 2;
+            tA.losses += 1;
+          }
+        }
+      });
+
+      const rows = Array.from(table.values());
+      rows.sort((a, b) => {
+        if (b.standingPoints !== a.standingPoints) return b.standingPoints - a.standingPoints;
+        const setDiffA = a.setsFor - a.setsAgainst;
+        const setDiffB = b.setsFor - b.setsAgainst;
+        if (setDiffB !== setDiffA) return setDiffB - setDiffA;
+        const ptDiffA = a.pointsFor - a.pointsAgainst;
+        const ptDiffB = b.pointsFor - b.pointsAgainst;
+        return ptDiffB - ptDiffA;
+      });
+
+      return { rows, groupMatchesCount: groupMatches.length };
+    }
+
+    async function syncKnockoutProgression() {
+      // Automatically populate SF from QF winners, and Final / 3rd Place from SF winners/losers
+      const allMatches = Array.from(matchesMap.values());
+      const byCat = new Map();
+
+      allMatches.forEach((m) => {
+        const key = `${m.division}|${m.category}`;
+        if (!byCat.has(key)) byCat.set(key, []);
+        byCat.get(key).push(m);
+      });
+
+      for (const [catKey, list] of byCat.entries()) {
+        const [division, category] = catKey.split("|");
+        const matchType = division === "D" ? "SINGLES" : "DOUBLES";
+
+        const qfs = list.filter((m) => m.round === "Perempat Final (QF)").sort((a, b) => a.id.localeCompare(b.id));
+        const sfs = list.filter((m) => m.round === "Semifinal (SF)").sort((a, b) => a.id.localeCompare(b.id));
+        const finals = list.filter((m) => m.round === "FINAL");
+        const thirds = list.filter((m) => m.round === "Perebutan Juara 3");
+
+        // If 2 QFs finished -> feed SF1; if 4 QFs finished -> feed SF1 & SF2
+        if (qfs.length >= 2 && qfs[0].status === "FINISHED" && qfs[1].status === "FINISHED") {
+          const w1 = qfs[0].winner === "A" ? { name: qfs[0].teamAName, players: qfs[0].teamAPlayers } : { name: qfs[0].teamBName, players: qfs[0].teamBPlayers };
+          const w2 = qfs[1].winner === "A" ? { name: qfs[1].teamAName, players: qfs[1].teamAPlayers } : { name: qfs[1].teamBName, players: qfs[1].teamBPlayers };
+          if (sfs.length === 0) {
+            const sf1 = createDefaultMatchData({
+              court: "Lapangan 1 (Utama)",
+              round: "Semifinal (SF)",
+              division,
+              category,
+              matchType,
+              teamAName: w1.name,
+              teamAPlayers: w1.players,
+              teamBName: w2.name,
+              teamBPlayers: w2.players,
+              firstServer: "A",
+              bracketSlot: "SF-1"
+            });
+            await saveMatchToCloud(sf1);
+          }
+        }
+
+        // If 2 SFs finished -> automatically create FINAL & Perebutan Juara 3 if not yet created
+        if (sfs.length >= 2 && sfs[0].status === "FINISHED" && sfs[1].status === "FINISHED") {
+          const sf1Win = sfs[0].winner === "A" ? { name: sfs[0].teamAName, players: sfs[0].teamAPlayers } : { name: sfs[0].teamBName, players: sfs[0].teamBPlayers };
+          const sf1Lose = sfs[0].winner === "A" ? { name: sfs[0].teamBName, players: sfs[0].teamBPlayers } : { name: sfs[0].teamAName, players: sfs[0].teamAPlayers };
+          const sf2Win = sfs[1].winner === "A" ? { name: sfs[1].teamAName, players: sfs[1].teamAPlayers } : { name: sfs[1].teamBName, players: sfs[1].teamBPlayers };
+          const sf2Lose = sfs[1].winner === "A" ? { name: sfs[1].teamBName, players: sfs[1].teamBPlayers } : { name: sfs[1].teamAName, players: sfs[1].teamAPlayers };
+
+          if (finals.length === 0) {
+            const finalMatch = createDefaultMatchData({
+              court: "Lapangan 1 (Utama)",
+              round: "FINAL",
+              division,
+              category,
+              matchType,
+              teamAName: sf1Win.name,
+              teamAPlayers: sf1Win.players,
+              teamBName: sf2Win.name,
+              teamBPlayers: sf2Win.players,
+              firstServer: "A",
+              bracketSlot: "FINAL"
+            });
+            await saveMatchToCloud(finalMatch);
+          }
+
+          if (thirds.length === 0) {
+            const thirdMatch = createDefaultMatchData({
+              court: "Lapangan 2",
+              round: "Perebutan Juara 3",
+              division,
+              category,
+              matchType,
+              teamAName: sf1Lose.name,
+              teamAPlayers: sf1Lose.players,
+              teamBName: sf2Lose.name,
+              teamBPlayers: sf2Lose.players,
+              firstServer: "A",
+              bracketSlot: "3RD"
+            });
+            await saveMatchToCloud(thirdMatch);
+          }
+        }
+      }
+    }
+
+    async function advanceTop4GroupToSemifinal() {
+      const catVal = document.getElementById("bracketCategorySelect").value;
+      const [division, category] = catVal.split("|");
+      const categoryMatches = Array.from(matchesMap.values()).filter(
+        (m) => m.division === division && m.category === category
+      );
+
+      const { rows } = computeGroupStandings(categoryMatches);
+      if (rows.length < 4) {
+        showToast("Minimal dibutuhkan 4 tim di klasemen grup untuk membuat bagan Semifinal.", "warning");
+        return;
+      }
+
+      const existingSFs = categoryMatches.filter((m) => m.round === "Semifinal (SF)");
+      if (existingSFs.length > 0) {
+        showToast("Bagan Semifinal untuk kategori ini sudah tersedia di bawah.", "info");
+        return;
+      }
+
+      const matchType = division === "D" ? "SINGLES" : "DOUBLES";
+      const sf1 = createDefaultMatchData({
+        court: "Lapangan 1 (Utama)",
+        round: "Semifinal (SF)",
+        division,
+        category,
+        matchType,
+        teamAName: rows[0].teamName,
+        teamAPlayers: rows[0].players || "Peringkat #1 Grup",
+        teamBName: rows[3].teamName,
+        teamBPlayers: rows[3].players || "Peringkat #4 Grup",
+        firstServer: "A",
+        bracketSlot: "SF-1"
+      });
+
+      const sf2 = createDefaultMatchData({
+        court: "Lapangan 2",
+        round: "Semifinal (SF)",
+        division,
+        category,
+        matchType,
+        teamAName: rows[1].teamName,
+        teamAPlayers: rows[1].players || "Peringkat #2 Grup",
+        teamBName: rows[2].teamName,
+        teamBPlayers: rows[2].players || "Peringkat #3 Grup",
+        firstServer: "A",
+        bracketSlot: "SF-2"
+      });
+
+      await saveMatchToCloud(sf1);
+      await saveMatchToCloud(sf2);
+      showToast("Top 4 Klasemen Grup berhasil diloloskan ke Bagan Semifinal!", "success");
+    }
+
+    function renderBracketAndStandings() {
+      const selectEl = document.getElementById("bracketCategorySelect");
+      if (!selectEl) return;
+      const [division, category] = selectEl.value.split("|");
+
+      const categoryMatches = Array.from(matchesMap.values()).filter(
+        (m) => m.division === division && m.category === category
+      );
+
+      // 1. Render Group Standings
+      const { rows, groupMatchesCount } = computeGroupStandings(categoryMatches);
+      document.getElementById("groupMatchCounterBadge").textContent = `${groupMatchesCount} Laga Grup Tercatat`;
+
+      const tbody = document.getElementById("groupStandingsTableBody");
+      if (rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-8 text-center text-xs sm:text-sm text-blue-300">
+              Belum ada pertandingan babak <strong>Penyisihan Grup</strong> pada kategori <strong>${category}</strong>.
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = rows
+          .map((r, idx) => {
+            const setDiff = r.setsFor - r.setsAgainst;
+            const ptDiff = r.pointsFor - r.pointsAgainst;
+            const isTop4 = idx < 4;
+            return `
+              <tr class="${isTop4 ? "bg-emerald-950/25" : "hover:bg-blue-950/40"}">
+                <td class="py-3 px-3 font-mono font-black ${isTop4 ? "text-yellow-400" : "text-slate-300"}">#${idx + 1}</td>
+                <td class="py-3 px-3">
+                  <div class="font-extrabold text-white">${r.teamName}</div>
+                  <div class="text-[11px] text-blue-300">${r.players || "-"}</div>
+                </td>
+                <td class="py-3 px-2 text-center font-mono">${r.played}</td>
+                <td class="py-3 px-2 text-center font-mono font-bold text-emerald-400">${r.wins}</td>
+                <td class="py-3 px-2 text-center font-mono text-rose-400">${r.losses}</td>
+                <td class="py-3 px-2 text-center font-mono">${r.setsFor}-${r.setsAgainst} (${setDiff >= 0 ? "+" + setDiff : setDiff})</td>
+                <td class="py-3 px-2 text-center font-mono">${r.pointsFor}-${r.pointsAgainst} (${ptDiff >= 0 ? "+" + ptDiff : ptDiff})</td>
+                <td class="py-3 px-3 text-center font-mono font-black text-yellow-400">${r.standingPoints}</td>
+                <td class="py-3 px-3 text-right">
+                  ${
+                    isTop4
+                      ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold">Zona Lolos</span>`
+                      : `<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[11px]">Penyisihan</span>`
+                  }
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      // 2. Render Knockout Bracket Tree
+      const qfs = categoryMatches.filter((m) => m.round === "Perempat Final (QF)");
+      const sfs = categoryMatches.filter((m) => m.round === "Semifinal (SF)");
+      const finals = categoryMatches.filter((m) => m.round === "FINAL" || m.round === "Perebutan Juara 3");
+
+      function buildBracketCard(m, labelOverride) {
+        const isDone = m.status === "FINISHED";
+        return `
+          <div class="rounded-2xl bg-slate-950/90 border ${isDone ? "border-emerald-500/60" : "border-blue-700/80"} p-3.5 space-y-2.5 shadow-lg">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-extrabold text-yellow-400 uppercase">${labelOverride || m.round} • ${m.court}</span>
+              <span class="px-2 py-0.5 rounded-full font-bold ${isDone ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}">
+                ${isDone ? "SELESAI" : "LIVE / SIAP"}
+              </span>
+            </div>
+
+            <div class="space-y-1.5 text-xs">
+              <div class="flex items-center justify-between px-2.5 py-2 rounded-xl ${m.winner === "A" ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 font-black" : "bg-slate-900 text-slate-200 font-semibold"}">
+                <span class="truncate pr-2">${m.teamAName} ${m.winner === "A" ? "👑" : ""}</span>
+                <span class="font-mono font-black text-sm">${m.setsA} <span class="text-[11px] text-slate-400">(${m.scoreA})</span></span>
+              </div>
+              <div class="flex items-center justify-between px-2.5 py-2 rounded-xl ${m.winner === "B" ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 font-black" : "bg-slate-900 text-slate-200 font-semibold"}">
+                <span class="truncate pr-2">${m.teamBName} ${m.winner === "B" ? "👑" : ""}</span>
+                <span class="font-mono font-black text-sm">${m.setsB} <span class="text-[11px] text-slate-400">(${m.scoreB})</span></span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <button type="button" data-open-match="${m.id}"
+                class="flex-1 py-2 px-3 rounded-xl bg-blue-800 hover:bg-blue-700 text-white font-bold text-xs transition">
+                ⚖️ Buka di Meja Wasit
+              </button>
+              <button type="button" data-report-match="${m.id}"
+                class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-yellow-300 font-bold text-xs transition" title="Berita Acara">
+                📄
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      const container = document.getElementById("knockoutBracketContainer");
+      container.innerHTML = `
+        <div class="space-y-3">
+          <h4 class="text-xs font-black uppercase tracking-wider text-blue-300 border-b border-blue-800 pb-2">
+            1. Perempat Final (QF)
+          </h4>
+          ${
+            qfs.length > 0
+              ? qfs.map((m, i) => buildBracketCard(m, `QF #${i + 1}`)).join("")
+              : `<div class="rounded-2xl border border-dashed border-blue-800 p-4 text-xs text-blue-300/80 text-center">Belum ada laga Perempat Final.</div>`
+          }
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="text-xs font-black uppercase tracking-wider text-yellow-400 border-b border-blue-800 pb-2">
+            2. Semifinal (SF)
+          </h4>
+          ${
+            sfs.length > 0
+              ? sfs.map((m, i) => buildBracketCard(m, `Semifinal #${i + 1}`)).join("")
+              : `<div class="rounded-2xl border border-dashed border-blue-800 p-4 text-xs text-blue-300/80 text-center">Klik <strong>Loloskan Top 4 Grup → Semifinal</strong> di atas setelah fase grup selesai.</div>`
+          }
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400 border-b border-blue-800 pb-2">
+            3. Perebutan Juara (FINAL &amp; Juara 3)
+          </h4>
+          ${
+            finals.length > 0
+              ? finals.map((m) => buildBracketCard(m, m.round)).join("")
+              : `<div class="rounded-2xl border border-dashed border-blue-800 p-4 text-xs text-blue-300/80 text-center">Slot FINAL &amp; Juara 3 otomatis terisi setelah kedua laga Semifinal selesai.</div>`
+          }
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. OFFICIAL MATCH REPORT & DIGITAL SIGNATURE PADS
+    // =========================================================================
+    function initSignaturePads() {
+      const mapping = [
+        { key: "captainA", id: "sigCanvasCaptainA" },
+        { key: "referee", id: "sigCanvasReferee" },
+        { key: "captainB", id: "sigCanvasCaptainB" }
+      ];
+
+      mapping.forEach(({ key, id }) => {
+        const canvas = document.getElementById(id);
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        signaturePads[key].canvas = canvas;
+        signaturePads[key].ctx = ctx;
+
+        function getPos(e) {
+          const rect = canvas.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height)
+          };
+        }
+
+        function startDraw(e) {
+          e.preventDefault();
+          signaturePads[key].drawing = true;
+          signaturePads[key].hasInk = true;
+          const pos = getPos(e);
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+        }
+
+        function moveDraw(e) {
+          if (!signaturePads[key].drawing) return;
+          e.preventDefault();
+          const pos = getPos(e);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+        }
+
+        function endDraw() {
+          signaturePads[key].drawing = false;
+        }
+
+        canvas.addEventListener("mousedown", startDraw);
+        canvas.addEventListener("mousemove", moveDraw);
+        window.addEventListener("mouseup", endDraw);
+
+        canvas.addEventListener("touchstart", startDraw, { passive: false });
+        canvas.addEventListener("touchmove", moveDraw, { passive: false });
+        canvas.addEventListener("touchend", endDraw);
+      });
+    }
+
+    function clearSignaturePad(key) {
+      const pad = signaturePads[key];
+      if (!pad || !pad.canvas || !pad.ctx) return;
+      pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height);
+      pad.hasInk = false;
+    }
+
+    function loadSignatureImageToCanvas(key, dataUrl) {
+      clearSignaturePad(key);
+      if (!dataUrl) return;
+      const pad = signaturePads[key];
+      if (!pad || !pad.canvas || !pad.ctx) return;
+      const img = new Image();
+      img.onload = () => {
+        pad.ctx.drawImage(img, 0, 0, pad.canvas.width, pad.canvas.height);
+        pad.hasInk = true;
+      };
+      img.src = dataUrl;
+    }
+
+    function openMatchReportModal(matchId) {
+      const targetId = matchId || activeMatchId;
+      const match = matchesMap.get(targetId);
+      if (!match) {
+        showToast("Pilih pertandingan terlebih dahulu untuk membuka Berita Acara.", "warning");
+        return;
+      }
+
+      reportMatchId = match.id;
+      document.getElementById("reportMatchId").textContent = match.id;
+      document.getElementById("reportTimestampText").textContent =
+        "Dicetak / Diperbarui pada: " + new Date(match.updatedAt || Date.now()).toLocaleString("id-ID");
+
+      document.getElementById("reportCategory").textContent = match.category;
+      document.getElementById("reportDivision").textContent = DIVISION_LABELS[match.division] || match.division;
+      document.getElementById("reportCourtRound").textContent = `${match.court} • ${match.round}`;
+      document.getElementById("reportFormat").textContent = `${match.matchType === "DOUBLES" ? "Ganda (3-Angka)" : "Tunggal (2-Angka)"} • Best of ${match.bestOf}`;
+
+      document.getElementById("reportTeamAName").textContent = match.teamAName;
+      document.getElementById("reportTeamAPlayers").textContent = match.teamAPlayers;
+      document.getElementById("reportTeamBName").textContent = match.teamBName;
+      document.getElementById("reportTeamBPlayers").textContent = match.teamBPlayers;
+
+      // Populate Set 1, 2, 3 scores (including live set if not yet pushed to setHistory)
+      const setsMap = new Map();
+      if (Array.isArray(match.setHistory)) {
+        match.setHistory.forEach((s) => setsMap.set(s.setNumber, s));
+      }
+      if (!setsMap.has(match.currentSet) && (match.scoreA > 0 || match.scoreB > 0)) {
+        setsMap.set(match.currentSet, {
+          setNumber: match.currentSet,
+          scoreA: match.scoreA,
+          scoreB: match.scoreB
+        });
+      }
+
+      [1, 2, 3].forEach((setNum) => {
+        const s = setsMap.get(setNum);
+        document.getElementById(`reportTeamASet${setNum}`).textContent = s ? s.scoreA : "-";
+        document.getElementById(`reportTeamBSet${setNum}`).textContent = s ? s.scoreB : "-";
+      });
+
+      document.getElementById("reportTeamATotalSets").textContent = match.setsA;
+      document.getElementById("reportTeamBTotalSets").textContent = match.setsB;
+      document.getElementById("reportTeamAFaults").textContent = match.faultsA || 0;
+      document.getElementById("reportTeamBFaults").textContent = match.faultsB || 0;
+
+      const winnerText =
+        match.status === "FINISHED" && match.winner
+          ? `Pemenang Pertandingan: ${match.winner === "A" ? match.teamAName : match.teamBName} (Skor Set ${match.setsA} - ${match.setsB})`
+          : `Status Pertandingan: Sedang Berlangsung (${match.teamAName} ${match.setsA} - ${match.setsB} ${match.teamBName})`;
+      document.getElementById("reportWinnerDeclaration").textContent = winnerText;
+
+      const sigs = match.signatures || {};
+      document.getElementById("sigNameCaptainA").value = sigs.captainAName || "";
+      document.getElementById("sigNameReferee").value = sigs.refereeName || deviceRefereeName || "";
+      document.getElementById("sigNameCaptainB").value = sigs.captainBName || "";
+
+      loadSignatureImageToCanvas("captainA", sigs.captainA || "");
+      loadSignatureImageToCanvas("referee", sigs.referee || "");
+      loadSignatureImageToCanvas("captainB", sigs.captainB || "");
+
+      document.getElementById("matchReportModal").classList.remove("hidden");
+    }
+
+    function closeMatchReportModal() {
+      document.getElementById("matchReportModal").classList.add("hidden");
+    }
+
+    async function saveReportSignaturesToCloud() {
+      const match = matchesMap.get(reportMatchId);
+      if (!match) return;
+
+      match.signatures = {
+        captainA: signaturePads.captainA.hasInk ? signaturePads.captainA.canvas.toDataURL("image/png") : "",
+        referee: signaturePads.referee.hasInk ? signaturePads.referee.canvas.toDataURL("image/png") : "",
+        captainB: signaturePads.captainB.hasInk ? signaturePads.captainB.canvas.toDataURL("image/png") : "",
+        captainAName: document.getElementById("sigNameCaptainA").value.trim(),
+        refereeName: document.getElementById("sigNameReferee").value.trim(),
+        captainBName: document.getElementById("sigNameCaptainB").value.trim()
+      };
+
+      await saveMatchToCloud(match);
+      showToast("Tanda tangan Berita Acara berhasil disimpan ke Cloud!", "success");
+    }
+
+    // =========================================================================
+    // 8. UI RENDERING (REFEREE CONSOLE & LIVE SCOREBOARD)
+    // =========================================================================
+    function renderAllViews() {
+      renderMatchSelectorDropdown();
+      renderRefereeConsole();
+      renderLiveScoreboard();
+      renderBracketAndStandings();
+    }
+
+    function renderMatchSelectorDropdown() {
+      const select = document.getElementById("activeMatchSelect");
+      if (!select) return;
+
+      const allMatches = Array.from(matchesMap.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      const filteredMatches =
+        deviceCourtFilter === "ALL"
+          ? allMatches
+          : allMatches.filter((m) => m.court === deviceCourtFilter);
+
+      const previousVal = activeMatchId;
+      select.innerHTML = `<option value="">-- Pilih Pertandingan (${filteredMatches.length} tersedia) --</option>`;
+
+      filteredMatches.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        const statusTag = m.status === "FINISHED" ? "[SELESAI]" : "[LIVE]";
+        opt.textContent = `${statusTag} ${m.court} • ${m.category} (${m.teamAName} vs ${m.teamBName})`;
+        select.appendChild(opt);
+      });
+
+      if (previousVal && matchesMap.has(previousVal)) {
+        select.value = previousVal;
+      } else if (!activeMatchId && filteredMatches.length > 0) {
+        activeMatchId = filteredMatches[0].id;
+        select.value = activeMatchId;
+      }
+
+      const liveCount = allMatches.filter((m) => m.status !== "FINISHED").length;
+      document.getElementById("liveMatchCountBadge").textContent = String(liveCount);
+    }
+
+    function renderRefereeConsole() {
+      const placeholder = document.getElementById("noMatchPlaceholder");
+      const consoleEl = document.getElementById("refereeConsole");
+      const warnBanner = document.getElementById("concurrentRefereeWarning");
+
+      const match = matchesMap.get(activeMatchId);
+      if (!match) {
+        placeholder.classList.remove("hidden");
+        consoleEl.classList.add("hidden");
+        warnBanner.classList.add("hidden");
+        return;
+      }
+
+      placeholder.classList.add("hidden");
+      consoleEl.classList.remove("hidden");
+
+      // Concurrent multi-device warning check
+      if (
+        match.lastUpdatedByDevice &&
+        match.lastUpdatedByDevice !== sessionDeviceId &&
+        Date.now() - (match.updatedAt || 0) < 180000
+      ) {
+        warnBanner.classList.remove("hidden");
+        document.getElementById("concurrentRefereeDetail").textContent =
+          `Laga di ${match.court} baru diperbarui oleh perangkat ${match.lastUpdatedByDevice}${match.lastUpdatedByReferee ? " (" + match.lastUpdatedByReferee + ")" : ""}. Pastikan hanya 1 wasit yang menginput skor lapangan ini.`;
+      } else {
+        warnBanner.classList.add("hidden");
+      }
+
+      // Metadata
+      document.getElementById("consoleCourtBadge").textContent = match.court.toUpperCase();
+      document.getElementById("consoleDivisionBadge").textContent = DIVISION_LABELS[match.division] || match.division;
+      document.getElementById("consoleCategoryTitle").textContent = `${match.category} — ${match.round}`;
+      document.getElementById("consoleFormatInfo").textContent = `Format: ${
+        match.matchType === "DOUBLES" ? "Ganda (Skor 3 Angka)" : "Tunggal (Skor 2 Angka)"
+      } • Target ${match.targetPoints} Poin (Win by 2) • Best of ${match.bestOf} Set`;
+
+      const statusPill = document.getElementById("consoleStatusPill");
+      const finishedBanner = document.getElementById("finishedReportBanner");
+      if (match.status === "FINISHED") {
+        statusPill.textContent = "✓ SELESAI";
+        statusPill.className = "px-2.5 py-1 rounded-full bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 text-xs font-extrabold uppercase";
+        finishedBanner.classList.remove("hidden");
+      } else {
+        statusPill.textContent = "● LIVE";
+        statusPill.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-extrabold uppercase";
+        finishedBanner.classList.add("hidden");
+      }
+
+      document.getElementById("consoleCurrentSet").textContent = `Set ${match.currentSet}`;
+      const historyEl = document.getElementById("consoleSetHistory");
+      const parts = [];
+      if (Array.isArray(match.setHistory)) {
+        match.setHistory.forEach((s) => parts.push(`Set ${s.setNumber}: ${s.scoreA}-${s.scoreB}`));
+      }
+      if (match.status !== "FINISHED") {
+        parts.push(`Set ${match.currentSet}: ${match.scoreA}-${match.scoreB}`);
+      }
+      historyEl.innerHTML = parts.map((p) => `<span class="px-2 py-0.5 rounded bg-slate-900 border border-blue-900">${p}</span>`).join("");
+
+      // Callout
+      const callout = formatScoreCallout(match);
+      document.getElementById("consoleRuleTypeBadge").textContent =
+        match.matchType === "DOUBLES" ? "GANDA (3-ANGKA)" : "TUNGGAL (2-ANGKA)";
+      document.getElementById("refereeScoreCallout").textContent = callout.digits;
+      document.getElementById("refereeInstructionCallout").textContent = callout.instruction;
+
+      // Team A & Team B Panels
+      document.getElementById("teamANameDisplay").textContent = match.teamAName;
+      document.getElementById("teamAPlayersDisplay").textContent = match.teamAPlayers;
+      document.getElementById("teamAScoreDisplay").textContent = String(match.scoreA);
+      document.getElementById("teamASetsDisplay").textContent = String(match.setsA);
+      document.getElementById("teamATimeoutsDisplay").textContent = String(match.timeoutsA ?? 2);
+
+      document.getElementById("teamBNameDisplay").textContent = match.teamBName;
+      document.getElementById("teamBPlayersDisplay").textContent = match.teamBPlayers;
+      document.getElementById("teamBScoreDisplay").textContent = String(match.scoreB);
+      document.getElementById("teamBSetsDisplay").textContent = String(match.setsB);
+      document.getElementById("teamBTimeoutsDisplay").textContent = String(match.timeoutsB ?? 2);
+
+      const teamACard = document.getElementById("teamACard");
+      const teamBCard = document.getElementById("teamBCard");
+      const teamAServingBadge = document.getElementById("teamAServingBadge");
+      const teamBServingBadge = document.getElementById("teamBServingBadge");
+      const teamAPosBadge = document.getElementById("teamAPositionBadge");
+      const teamBPosBadge = document.getElementById("teamBPositionBadge");
+
+      const srvLabel = match.matchType === "DOUBLES" ? `🎾 SERVIS (SERVER ${match.serverNumber || 1})` : "🎾 SERVIS (TUNGGAL)";
+
+      if (match.servingTeam === "A") {
+        teamACard.className = "rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-emerald-400 shadow-2xl transition-all flex flex-col justify-between gap-5";
+        teamBCard.className = "rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-blue-800/70 shadow-xl transition-all flex flex-col justify-between gap-5";
+        teamAServingBadge.classList.remove("hidden");
+        teamAServingBadge.textContent = srvLabel;
+        teamBServingBadge.classList.add("hidden");
+
+        teamAPosBadge.className = "inline-block px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-extrabold";
+        teamAPosBadge.textContent = `KOTAK ${callout.courtSideLabel.toUpperCase()}`;
+        teamBPosBadge.className = "inline-block px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-extrabold";
+        teamBPosBadge.textContent = "MENUNGGU SERVIS";
+      } else {
+        teamBCard.className = "rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-emerald-400 shadow-2xl transition-all flex flex-col justify-between gap-5";
+        teamACard.className = "rounded-3xl p-5 sm:p-6 bg-[#0B1F47] border-2 border-blue-800/70 shadow-xl transition-all flex flex-col justify-between gap-5";
+        teamBServingBadge.classList.remove("hidden");
+        teamBServingBadge.textContent = srvLabel;
+        teamAServingBadge.classList.add("hidden");
+
+        teamBPosBadge.className = "inline-block px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-extrabold";
+        teamBPosBadge.textContent = `KOTAK ${callout.courtSideLabel.toUpperCase()}`;
+        teamAPosBadge.className = "inline-block px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-extrabold";
+        teamAPosBadge.textContent = "MENUNGGU SERVIS";
+      }
+
+      // Rally Action Labels
+      const servingName = match.servingTeam === "A" ? `Tim A (${match.teamAName})` : `Tim B (${match.teamBName})`;
+      const receivingName = match.servingTeam === "A" ? `Tim B (${match.teamBName})` : `Tim A (${match.teamAName})`;
+
+      document.getElementById("pointBtnMainLabel").textContent = `+1 POIN TIM ${match.servingTeam}`;
+      document.getElementById("pointBtnSubLabel").textContent = `${servingName} menang reli → Tambah poin & tukar posisi`;
+
+      if (match.matchType === "DOUBLES" && match.serverNumber === 1) {
+        document.getElementById("sideOutBtnMainLabel").textContent = "PINDAH KE SERVER 2";
+        document.getElementById("sideOutBtnSubLabel").textContent = `${servingName} kalah reli → Giliran rekan setim servis`;
+      } else {
+        document.getElementById("sideOutBtnMainLabel").textContent = "SIDE OUT (PINDAH TIM SERVIS)";
+        document.getElementById("sideOutBtnSubLabel").textContent = `${receivingName} menang reli → Bola servis pindah`;
+      }
+
+      document.getElementById("lastActionLogText").textContent = match.lastActionLog || "Siap memulai reli.";
+    }
+
+    function renderLiveScoreboard() {
+      const grid = document.getElementById("liveMatchesGrid");
+      if (!grid) return;
+
+      let list = Array.from(matchesMap.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      if (liveCourtFilter !== "ALL") {
+        list = list.filter((m) => m.court === liveCourtFilter);
+      }
+      if (liveDivisionFilter !== "ALL") {
+        list = list.filter((m) => m.division === liveDivisionFilter);
+      }
+
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-[#0B1F47]/60 border border-dashed border-blue-700/70 rounded-2xl p-8 text-center text-sm text-blue-200">
+            Belum ada pertandingan yang cocok dengan filter lapangan/divisi saat ini.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = list
+        .map((m) => {
+          const isFinished = m.status === "FINISHED";
+          const callout = formatScoreCallout(m);
+          return `
+            <div class="bg-[#0B1F47] border ${isFinished ? "border-emerald-500/60" : "border-blue-700/80"} rounded-2xl p-4 shadow-xl flex flex-col justify-between gap-4">
+              <div>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="px-2.5 py-0.5 rounded-lg bg-yellow-400 text-slate-950 font-black text-xs uppercase">${m.court}</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                    isFinished ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse"
+                  }">
+                    ${isFinished ? "✓ SELESAI" : "● LIVE"}
+                  </span>
+                </div>
+                <div class="mt-2">
+                  <span class="text-[11px] font-bold text-blue-300">${DIVISION_LABELS[m.division] || m.division} • ${m.round}</span>
+                  <h3 class="text-sm sm:text-base font-extrabold text-white">${m.category}</h3>
+                </div>
+              </div>
+
+              <div class="bg-slate-950/90 border border-blue-900/80 rounded-xl p-3 space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      ${!isFinished && m.servingTeam === "A" ? `<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>` : ""}
+                      <span class="font-extrabold text-sm text-white truncate">${m.teamAName}</span>
+                    </div>
+                    <p class="text-[11px] text-blue-300 truncate">${m.teamAPlayers}</p>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="px-2 py-0.5 rounded bg-blue-950 text-yellow-400 font-mono text-xs font-bold">Set ${m.setsA}</span>
+                    <span class="font-mono text-2xl font-black text-white">${m.scoreA}</span>
+                  </div>
+                </div>
+
+                <div class="border-t border-blue-900/70 pt-2 flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      ${!isFinished && m.servingTeam === "B" ? `<span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>` : ""}
+                      <span class="font-extrabold text-sm text-white truncate">${m.teamBName}</span>
+                    </div>
+                    <p class="text-[11px] text-blue-300 truncate">${m.teamBPlayers}</p>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="px-2 py-0.5 rounded bg-blue-950 text-yellow-400 font-mono text-xs font-bold">Set ${m.setsB}</span>
+                    <span class="font-mono text-2xl font-black text-white">${m.scoreB}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <span class="font-mono text-xs font-bold text-yellow-300">
+                  ${isFinished ? `Pemenang: Tim ${m.winner}` : `Call: ${callout.digits}`}
+                </span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" data-open-match="${m.id}"
+                    class="px-3 py-1.5 rounded-xl bg-blue-800 hover:bg-blue-700 text-xs font-bold text-white transition">
+                    ⚖️ Meja Wasit
+                  </button>
+                  <button type="button" data-report-match="${m.id}"
+                    class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-yellow-300 transition" title="Berita Acara">
+                    📄
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    async function seedDemoMatches() {
+      const demoList = [
+        createDefaultMatchData({
+          id: "SPO27-DEMO1",
+          court: "Lapangan 1 (Utama)",
+          round: "Penyisihan Grup",
+          division: "C",
+          category: "Ganda Putra",
+          matchType: "DOUBLES",
+          targetPoints: 11,
+          bestOf: 3,
+          teamAName: "Sorowako Smash",
+          teamAPlayers: "Andi / Budi",
+          teamBName: "Malili United",
+          teamBPlayers: "Reza / Farhan",
+          firstServer: "A"
+        }),
+        createDefaultMatchData({
+          id: "SPO27-DEMO2",
+          court: "Lapangan 2",
+          round: "Penyisihan Grup",
+          division: "A",
+          category: "Ganda Putri Beginner",
+          matchType: "DOUBLES",
+          targetPoints: 11,
+          bestOf: 3,
+          teamAName: "Soroako Ladies",
+          teamAPlayers: "Sari / Rina",
+          teamBName: "Wawondula BC",
+          teamBPlayers: "Dewi / Maya",
+          firstServer: "B"
+        }),
+        createDefaultMatchData({
+          id: "SPO27-DEMO3",
+          court: "Lapangan 3",
+          round: "Penyisihan Grup",
+          division: "D",
+          category: "Tunggal Putra SMP",
+          matchType: "SINGLES",
+          targetPoints: 11,
+          bestOf: 3,
+          teamAName: "SMP YPS Singkole",
+          teamAPlayers: "Rafi Pratama",
+          teamBName: "SMPN 1 Nuha",
+          teamBPlayers: "Alif Hidayat",
+          firstServer: "A"
+        }),
+        createDefaultMatchData({
+          id: "SPO27-DEMO4",
+          court: "Lapangan 4",
+          round: "Penyisihan Grup",
+          division: "B",
+          category: "Ganda Putra Beginner",
+          matchType: "DOUBLES",
+          targetPoints: 11,
+          bestOf: 3,
+          teamAName: "Towuti Club",
+          teamAPlayers: "Hendra / Ilham",
+          teamBName: "Tomoni Jaya",
+          teamBPlayers: "Wawan / Dedi",
+          firstServer: "A"
+        })
+      ];
+
+      for (const item of demoList) {
+        await saveMatchToCloud(item);
+      }
+
+      activeMatchId = demoList[0].id;
+      renderAllViews();
+      showToast("4 contoh jadwal turnamen berhasil ditambahkan ke sistem!", "success");
+    }
+
+    // =========================================================================
+    // 9. NAVIGATION, MODAL & DOM EVENT LISTENERS
+    // =========================================================================
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.classList.add("hidden");
+      });
+
+      const targetPanel = document.getElementById(`tab-${tabName}`);
+      if (targetPanel) {
+        targetPanel.classList.remove("hidden");
+      }
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        if (btn.dataset.tab === tabName) {
+          btn.className = "tab-btn active-tab flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition bg-yellow-400 text-slate-950 shadow";
+        } else {
+          btn.className = "tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition text-blue-200 hover:bg-blue-900/50";
+        }
+      });
+
+      if (tabName === "bracket") {
+        renderBracketAndStandings();
+      } else if (tabName === "liveboard") {
+        renderLiveScoreboard();
+      }
+    }
+
+    function openNewMatchModal() {
+      const formCourt = document.getElementById("formCourt");
+      if (formCourt && deviceCourtFilter !== "ALL") {
+        formCourt.value = deviceCourtFilter;
+      }
+      document.getElementById("newMatchModal").classList.remove("hidden");
+    }
+
+    function closeNewMatchModal() {
+      document.getElementById("newMatchModal").classList.add("hidden");
+    }
+
+    function setupEventListeners() {
+      // Tab navigation
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          switchTab(btn.dataset.tab);
+        });
+      });
+
+      // Sound Toggle
+      document.getElementById("soundToggleBtn").addEventListener("click", () => {
+        soundEnabled = !soundEnabled;
+        document.getElementById("soundIcon").textContent = soundEnabled ? "🔊" : "🔇";
+        document.getElementById("soundLabel").textContent = soundEnabled ? "Suara Aktif" : "Suara Mati";
+        if (soundEnabled) playToneCue("point");
+      });
+
+      // Multi-user Court Filter & Referee Name
+      document.getElementById("deviceCourtFilterSelect").addEventListener("change", (e) => {
+        deviceCourtFilter = e.target.value;
+        activeMatchId = "";
+        renderAllViews();
+        showToast(
+          deviceCourtFilter === "ALL"
+            ? "Menampilkan seluruh lapangan (Mode Panitia)."
+            : `Perangkat dikunci pada ${deviceCourtFilter}.`,
+          "info"
+        );
+      });
+
+      document.getElementById("deviceRefereeNameInput").addEventListener("input", (e) => {
+        deviceRefereeName = e.target.value.trim();
+      });
+
+      // Active match dropdown
+      document.getElementById("activeMatchSelect").addEventListener("change", (e) => {
+        activeMatchId = e.target.value;
+        renderRefereeConsole();
+      });
+
+      // New match modal triggers
+      document.getElementById("openNewMatchModalBtn").addEventListener("click", openNewMatchModal);
+      document.getElementById("emptyNewMatchBtn").addEventListener("click", openNewMatchModal);
+      document.getElementById("closeNewMatchModalBtn").addEventListener("click", closeNewMatchModal);
+      document.getElementById("cancelNewMatchBtn").addEventListener("click", closeNewMatchModal);
+
+      // Seed demo matches triggers
+      document.getElementById("seedDemoMatchesBtn").addEventListener("click", seedDemoMatches);
+      document.getElementById("emptySeedBtn").addEventListener("click", seedDemoMatches);
+
+      // New match form submit
+      document.getElementById("newMatchForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const catRaw = document.getElementById("formCategory").value;
+        const [division, category, matchType] = catRaw.split("|");
+        const firstServerRadio = document.querySelector('input[name="firstServer"]:checked');
+
+        const newMatch = createDefaultMatchData({
+          court: document.getElementById("formCourt").value,
+          round: document.getElementById("formRound").value,
+          division,
+          category,
+          matchType,
+          targetPoints: Number(document.getElementById("formTargetPoints").value),
+          bestOf: Number(document.getElementById("formBestOf").value),
+          teamAName: document.getElementById("formTeamAName").value.trim(),
+          teamAPlayers: document.getElementById("formTeamAPlayers").value.trim(),
+          teamBName: document.getElementById("formTeamBName").value.trim(),
+          teamBPlayers: document.getElementById("formTeamBPlayers").value.trim(),
+          firstServer: firstServerRadio ? firstServerRadio.value : "A"
+        });
+
+        await saveMatchToCloud(newMatch);
+        activeMatchId = newMatch.id;
+        closeNewMatchModal();
+        document.getElementById("newMatchForm").reset();
+        renderAllViews();
+        showToast(`Pertandingan ${newMatch.teamAName} vs ${newMatch.teamBName} dimulai di ${newMatch.court}!`, "success");
+      });
+
+      // Primary Referee Scoring Buttons
+      document.getElementById("rallyPointServerBtn").addEventListener("click", handlePointForServingTeam);
+      document.getElementById("rallySideOutBtn").addEventListener("click", handleSideOutOrSecondServer);
+      document.getElementById("undoActionBtn").addEventListener("click", handleUndoAction);
+
+      // Team Timeouts & Faults
+      document.getElementById("teamATimeoutBtn").addEventListener("click", () => handleTeamTimeout("A"));
+      document.getElementById("teamBTimeoutBtn").addEventListener("click", () => handleTeamTimeout("B"));
+      document.getElementById("teamAFaultBtn").addEventListener("click", () => handleTeamFault("A"));
+      document.getElementById("teamBFaultBtn").addEventListener("click", () => handleTeamFault("B"));
+
+      // Side & Server Adjusters
+      document.getElementById("swapInitialServerBtn").addEventListener("click", handleSwapInitialServer);
+      document.getElementById("swapCourtEndsBtn").addEventListener("click", handleSwapCourtEnds);
+
+      // Secondary Match Controls
+      document.getElementById("resetCurrentSetBtn").addEventListener("click", handleResetCurrentSet);
+      document.getElementById("finishMatchManualBtn").addEventListener("click", handleManualFinishMatch);
+
+      document.getElementById("deleteMatchBtn").addEventListener("click", () => {
+        const match = matchesMap.get(activeMatchId);
+        if (!match) return;
+        showConfirmModal(
+          "Hapus Pertandingan dari Cloud?",
+          `Data pertandingan ${match.teamAName} vs ${match.teamBName} (${match.court}) akan dihapus permanen.`,
+          async () => {
+            await deleteMatchFromCloud(match.id);
+            showToast("Pertandingan dihapus dari Cloud.", "info");
+          }
+        );
+      });
+
+      // Match Report & Signature Pad Controls
+      document.getElementById("openReportModalBtn").addEventListener("click", () => openMatchReportModal(activeMatchId));
+      document.getElementById("bannerOpenReportBtn").addEventListener("click", () => openMatchReportModal(activeMatchId));
+      document.getElementById("closeReportModalBtn").addEventListener("click", closeMatchReportModal);
+      document.getElementById("saveSignaturesCloudBtn").addEventListener("click", saveReportSignaturesToCloud);
+      document.getElementById("printReportBtn").addEventListener("click", async () => {
+        await saveReportSignaturesToCloud();
+        window.print();
+      });
+
+      document.querySelectorAll("[data-clear-sig]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          clearSignaturePad(btn.dataset.clearSig);
+        });
+      });
+
+      // Live Scoreboard Filters
+      document.getElementById("liveCourtFilter").addEventListener("change", (e) => {
+        liveCourtFilter = e.target.value;
+        renderLiveScoreboard();
+      });
+
+      document.querySelectorAll(".div-filter-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          liveDivisionFilter = btn.dataset.filter;
+          document.querySelectorAll(".div-filter-btn").forEach((b) => {
+            if (b.dataset.filter === liveDivisionFilter) {
+              b.className = "div-filter-btn px-3 py-1.5 rounded-xl text-xs font-extrabold bg-yellow-400 text-slate-950";
+            } else {
+              b.className = "div-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-950 text-blue-200 border border-blue-800";
+            }
+          });
+          renderLiveScoreboard();
+        });
+      });
+
+      // Bracket & Standings Controls
+      document.getElementById("bracketCategorySelect").addEventListener("change", renderBracketAndStandings);
+      document.getElementById("advanceGroupToKnockoutBtn").addEventListener("click", advanceTop4GroupToSemifinal);
+
+      // Delegated clicks for dynamic cards (Open in Referee Console / Open Report)
+      document.body.addEventListener("click", (e) => {
+        const openBtn = e.target.closest("[data-open-match]");
+        if (openBtn) {
+          activeMatchId = openBtn.dataset.openMatch;
+          switchTab("referee");
+          renderAllViews();
+          return;
+        }
+        const reportBtn = e.target.closest("[data-report-match]");
+        if (reportBtn) {
+          openMatchReportModal(reportBtn.dataset.reportMatch);
+        }
+      });
+
+      // Confirm Modal Buttons
+      document.getElementById("confirmModalCancelBtn").addEventListener("click", closeConfirmModal);
+      document.getElementById("confirmModalOkBtn").addEventListener("click", async () => {
+        const cb = confirmCallback;
+        closeConfirmModal();
+        if (typeof cb === "function") {
+          await cb();
+        }
+      });
+    }
+
+    // Boot Application
+    function bootApp() {
+      initSignaturePads();
+      setupEventListeners();
+      initCloudStore();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootApp);
+    } else {
+      bootApp();
+    }
+  </script>
+</body>
+</html>
